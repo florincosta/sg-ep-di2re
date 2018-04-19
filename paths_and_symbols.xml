@@ -1,0 +1,127 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<cdtprojectproperties>
+<section name="org.eclipse.cdt.internal.ui.wizards.settingswizards.IncludePaths">
+<language name="S">
+<includepath workspace_path="true">/sg-ep-di2re/Inc</includepath>
+<includepath workspace_path="true">/sg-ep-di2re/Drivers/STM32L0xx_HAL_Driver/Inc</includepath>
+<includepath workspace_path="true">/sg-ep-di2re/Drivers/STM32L0xx_HAL_Driver/Inc/Legacy</includepath>
+<includepath workspace_path="true">/sg-ep-di2re/Drivers/CMSIS/Include</includepath>
+<includepath workspace_path="true">/sg-ep-di2re/Drivers/CMSIS/Device/ST/STM32L0xx/Include</includepath>
+<includepath workspace_path="true">/sg-ep-di2re/Drivers/LoRaMac-node/src/peripherals</includepath>
+<includepath workspace_path="true">/sg-ep-di2re/Drivers/LoRaMac-node/src/boards</includepath>
+<includepath workspace_path="true">/sg-ep-di2re/Drivers/LoRaMac-node/src/mac</includepath>
+<includepath workspace_path="true">/sg-ep-di2re/Drivers/LoRaMac-node/src/system</includepath>
+<includepath workspace_path="true">/sg-ep-di2re/Drivers/LoRaMac-node/src/system/crypto</includepath>
+<includepath workspace_path="true">/sg-ep-di2re/Drivers/LoRaMac-node/src/radio</includepath>
+<includepath workspace_path="true">/sg-ep-di2re/Src/platform</includepath>
+
+</language>
+<language name="C Source File">
+<includepath workspace_path="true">/sg-ep-di2re/Inc</includepath>
+<includepath workspace_path="true">/sg-ep-di2re/Drivers/STM32L0xx_HAL_Driver/Inc</includepath>
+<includepath workspace_path="true">/sg-ep-di2re/Drivers/STM32L0xx_HAL_Driver/Inc/Legacy</includepath>
+<includepath workspace_path="true">/sg-ep-di2re/Drivers/CMSIS/Include</includepath>
+<includepath workspace_path="true">/sg-ep-di2re/Drivers/CMSIS/Device/ST/STM32L0xx/Include</includepath>
+<includepath workspace_path="true">/sg-ep-di2re/Drivers/LoRaMac-node/src/peripherals</includepath>
+<includepath workspace_path="true">/sg-ep-di2re/Drivers/LoRaMac-node/src/boards</includepath>
+<includepath workspace_path="true">/sg-ep-di2re/Drivers/LoRaMac-node/src/mac</includepath>
+<includepath workspace_path="true">/sg-ep-di2re/Drivers/LoRaMac-node/src/system</includepath>
+<includepath workspace_path="true">/sg-ep-di2re/Drivers/LoRaMac-node/src/system/crypto</includepath>
+<includepath workspace_path="true">/sg-ep-di2re/Drivers/LoRaMac-node/src/radio</includepath>
+<includepath workspace_path="true">/sg-ep-di2re/Src/platform</includepath>
+
+</language>
+<language name="Object File">
+
+</language>
+<language name="Assembly Source File">
+<includepath workspace_path="true">/sg-ep-di2re/Inc</includepath>
+<includepath workspace_path="true">/sg-ep-di2re/Drivers/STM32L0xx_HAL_Driver/Inc</includepath>
+<includepath workspace_path="true">/sg-ep-di2re/Drivers/STM32L0xx_HAL_Driver/Inc/Legacy</includepath>
+<includepath workspace_path="true">/sg-ep-di2re/Drivers/CMSIS/Include</includepath>
+<includepath workspace_path="true">/sg-ep-di2re/Drivers/CMSIS/Device/ST/STM32L0xx/Include</includepath>
+<includepath workspace_path="true">/sg-ep-di2re/Drivers/LoRaMac-node/src/peripherals</includepath>
+<includepath workspace_path="true">/sg-ep-di2re/Drivers/LoRaMac-node/src/boards</includepath>
+<includepath workspace_path="true">/sg-ep-di2re/Drivers/LoRaMac-node/src/mac</includepath>
+<includepath workspace_path="true">/sg-ep-di2re/Drivers/LoRaMac-node/src/system</includepath>
+<includepath workspace_path="true">/sg-ep-di2re/Drivers/LoRaMac-node/src/system/crypto</includepath>
+<includepath workspace_path="true">/sg-ep-di2re/Drivers/LoRaMac-node/src/radio</includepath>
+<includepath workspace_path="true">/sg-ep-di2re/Src/platform</includepath>
+
+</language>
+<language name="s">
+<includepath workspace_path="true">/sg-ep-di2re/Inc</includepath>
+<includepath workspace_path="true">/sg-ep-di2re/Drivers/STM32L0xx_HAL_Driver/Inc</includepath>
+<includepath workspace_path="true">/sg-ep-di2re/Drivers/STM32L0xx_HAL_Driver/Inc/Legacy</includepath>
+<includepath workspace_path="true">/sg-ep-di2re/Drivers/CMSIS/Include</includepath>
+<includepath workspace_path="true">/sg-ep-di2re/Drivers/CMSIS/Device/ST/STM32L0xx/Include</includepath>
+<includepath workspace_path="true">/sg-ep-di2re/Drivers/LoRaMac-node/src/peripherals</includepath>
+<includepath workspace_path="true">/sg-ep-di2re/Drivers/LoRaMac-node/src/boards</includepath>
+<includepath workspace_path="true">/sg-ep-di2re/Drivers/LoRaMac-node/src/mac</includepath>
+<includepath workspace_path="true">/sg-ep-di2re/Drivers/LoRaMac-node/src/system</includepath>
+<includepath workspace_path="true">/sg-ep-di2re/Drivers/LoRaMac-node/src/system/crypto</includepath>
+<includepath workspace_path="true">/sg-ep-di2re/Drivers/LoRaMac-node/src/radio</includepath>
+<includepath workspace_path="true">/sg-ep-di2re/Src/platform</includepath>
+
+</language>
+</section>
+<section name="org.eclipse.cdt.internal.ui.wizards.settingswizards.Macros">
+<language name="S">
+<macro>
+<name>__weak</name><value>"__attribute__((weak))"</value>
+</macro>
+<macro>
+<name>__packed</name><value>"__attribute__((__packed__))"</value>
+</macro>
+<macro>
+<name>USE_HAL_DRIVER</name><value/>
+</macro>
+<macro>
+<name>STM32L031xx</name><value/>
+</macro>
+<macro>
+<name>SX1276MB1LAS</name><value/>
+</macro>
+<macro>
+<name>USE_MODEM_LORA</name><value/>
+</macro>
+<macro>
+<name>REGION_EU868</name><value/>
+</macro>
+
+</language>
+<language name="C Source File">
+<macro>
+<name>__weak</name><value>"__attribute__((weak))"</value>
+</macro>
+<macro>
+<name>__packed</name><value>"__attribute__((__packed__))"</value>
+</macro>
+<macro>
+<name>USE_HAL_DRIVER</name><value/>
+</macro>
+<macro>
+<name>STM32L031xx</name><value/>
+</macro>
+<macro>
+<name>SX1276MB1LAS</name><value/>
+</macro>
+<macro>
+<name>USE_MODEM_LORA</name><value/>
+</macro>
+<macro>
+<name>REGION_EU868</name><value/>
+</macro>
+
+</language>
+<language name="Object File">
+
+</language>
+<language name="Assembly Source File">
+
+</language>
+<language name="s">
+
+</language>
+</section>
+</cdtprojectproperties>
