@@ -57,6 +57,8 @@
 #define DIO5_GPIO_Port GPIOA
 #define RST_Pin GPIO_PIN_3
 #define RST_GPIO_Port GPIOA
+#define SPI1_NSS_Pin GPIO_PIN_4
+#define SPI1_NSS_GPIO_Port GPIOA
 #define DIO3_Pin GPIO_PIN_8
 #define DIO3_GPIO_Port GPIOA
 #define DIO4_Pin GPIO_PIN_9

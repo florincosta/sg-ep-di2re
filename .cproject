@@ -126,7 +126,7 @@
 					<sourceEntries>
 						<entry excluding="LoRaMac-node/src/radio/sx1272|LoRaMac-node/src/radio/sx126x|LoRaMac-node/src/boards/SK-iM880A|LoRaMac-node/src/boards/SensorNode|LoRaMac-node/src/boards/SAML21|LoRaMac-node/src/boards/NucleoL152|LoRaMac-node/src/boards/NucleoL073|LoRaMac-node/src/boards/NAMote72|LoRaMac-node/src/boards/MoteII|LoRaMac-node/src/boards/LoRaMote|LoRaMac-node/src/boards/mcu/stm32|LoRaMac-node/src/boards/mcu/saml21|LoRaMac-node/src/apps" flags="VALUE_WORKSPACE_PATH|RESOLVED" kind="sourcePath" name="Drivers"/>
 						<entry flags="VALUE_WORKSPACE_PATH|RESOLVED" kind="sourcePath" name="Inc"/>
-						<entry flags="VALUE_WORKSPACE_PATH|RESOLVED" kind="sourcePath" name="Src"/>
+						<entry excluding="platform/uart-board.c" flags="VALUE_WORKSPACE_PATH|RESOLVED" kind="sourcePath" name="Src"/>
 						<entry flags="VALUE_WORKSPACE_PATH|RESOLVED" kind="sourcePath" name="startup"/>
 					</sourceEntries>
 				</configuration>
@@ -277,7 +277,7 @@
 					<sourceEntries>
 						<entry excluding="LoRaMac-node/src/radio/sx1272|LoRaMac-node/src/radio/sx126x|LoRaMac-node/src/boards/SK-iM880A|LoRaMac-node/src/boards/SensorNode|LoRaMac-node/src/boards/SAML21|LoRaMac-node/src/boards/NucleoL152|LoRaMac-node/src/boards/NucleoL073|LoRaMac-node/src/boards/NAMote72|LoRaMac-node/src/boards/MoteII|LoRaMac-node/src/boards/LoRaMote|LoRaMac-node/src/boards/mcu/stm32|LoRaMac-node/src/boards/mcu/saml21|LoRaMac-node/src/apps" flags="VALUE_WORKSPACE_PATH|RESOLVED" kind="sourcePath" name="Drivers"/>
 						<entry flags="VALUE_WORKSPACE_PATH|RESOLVED" kind="sourcePath" name="Inc"/>
-						<entry flags="VALUE_WORKSPACE_PATH|RESOLVED" kind="sourcePath" name="Src"/>
+						<entry excluding="platform/uart-board.c" flags="VALUE_WORKSPACE_PATH|RESOLVED" kind="sourcePath" name="Src"/>
 						<entry flags="VALUE_WORKSPACE_PATH|RESOLVED" kind="sourcePath" name="startup"/>
 					</sourceEntries>
 				</configuration>

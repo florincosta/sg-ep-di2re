@@ -1,3 +1,4 @@
+
 /**
   ******************************************************************************
   * @file           : main.c
@@ -133,8 +134,6 @@ RTC_HandleTypeDef hrtc;
 
 SPI_HandleTypeDef hspi1;
 
-UART_HandleTypeDef huart1;
-
 /* USER CODE BEGIN PV */
 /* Private variables ---------------------------------------------------------*/
 int8_t RssiValue = 0;
@@ -158,10 +157,9 @@ extern Gpio_t Led2;
 /* Private function prototypes -----------------------------------------------*/
 void SystemClock_Config(void);
 static void MX_GPIO_Init(void);
-static void MX_ADC_Init(void);
 static void MX_SPI1_Init(void);
 static void MX_RTC_Init(void);
-static void MX_USART1_UART_Init(void);
+static void MX_ADC_Init(void);
 
 /* USER CODE BEGIN PFP */
 
@@ -214,25 +212,24 @@ int main(void)
   /* MCU Configuration----------------------------------------------------------*/
 
   /* Reset of all peripherals, Initializes the Flash interface and the Systick. */
-  HAL_Init();
+//  HAL_Init();
 
   /* USER CODE BEGIN Init */
 
   /* USER CODE END Init */
 
   /* Configure the system clock */
-  SystemClock_Config();
+//  SystemClock_Config();
 
   /* USER CODE BEGIN SysInit */
 
   /* USER CODE END SysInit */
 
   /* Initialize all configured peripherals */
-  MX_GPIO_Init();
-  MX_ADC_Init();
-  MX_SPI1_Init();
-  MX_RTC_Init();
-  MX_USART1_UART_Init();
+//  MX_GPIO_Init();
+//  MX_SPI1_Init();
+//  MX_RTC_Init();
+//  MX_ADC_Init();
   /* USER CODE BEGIN 2 */
 
 
@@ -295,7 +292,7 @@ int main(void)
 
       HAL_GPIO_WritePin(LED_GPIO_Port, LED_Pin, GPIO_PIN_RESET);
 
-      printf("test\n");
+//      printf("test\n");
 
   }
   /* USER CODE END 3 */
@@ -317,13 +314,18 @@ void SystemClock_Config(void)
     */
   __HAL_PWR_VOLTAGESCALING_CONFIG(PWR_REGULATOR_VOLTAGE_SCALE1);
 
+    /**Configure LSE Drive Capability 
+    */
+  HAL_PWR_EnableBkUpAccess();
+
+  __HAL_RCC_LSEDRIVE_CONFIG(RCC_LSEDRIVE_LOW);
+
     /**Initializes the CPU, AHB and APB busses clocks 
     */
-  RCC_OscInitStruct.OscillatorType = RCC_OSCILLATORTYPE_LSI|RCC_OSCILLATORTYPE_MSI;
-  RCC_OscInitStruct.LSIState = RCC_LSI_ON;
-  RCC_OscInitStruct.MSIState = RCC_MSI_ON;
-  RCC_OscInitStruct.MSICalibrationValue = 0;
-  RCC_OscInitStruct.MSIClockRange = RCC_MSIRANGE_5;
+  RCC_OscInitStruct.OscillatorType = RCC_OSCILLATORTYPE_HSI|RCC_OSCILLATORTYPE_LSE;
+  RCC_OscInitStruct.LSEState = RCC_LSE_ON;
+  RCC_OscInitStruct.HSIState = RCC_HSI_ON;
+  RCC_OscInitStruct.HSICalibrationValue = 16;
   RCC_OscInitStruct.PLL.PLLState = RCC_PLL_NONE;
   if (HAL_RCC_OscConfig(&RCC_OscInitStruct) != HAL_OK)
   {
@@ -334,7 +336,7 @@ void SystemClock_Config(void)
     */
   RCC_ClkInitStruct.ClockType = RCC_CLOCKTYPE_HCLK|RCC_CLOCKTYPE_SYSCLK
                               |RCC_CLOCKTYPE_PCLK1|RCC_CLOCKTYPE_PCLK2;
-  RCC_ClkInitStruct.SYSCLKSource = RCC_SYSCLKSOURCE_MSI;
+  RCC_ClkInitStruct.SYSCLKSource = RCC_SYSCLKSOURCE_HSI;
   RCC_ClkInitStruct.AHBCLKDivider = RCC_SYSCLK_DIV1;
   RCC_ClkInitStruct.APB1CLKDivider = RCC_HCLK_DIV1;
   RCC_ClkInitStruct.APB2CLKDivider = RCC_HCLK_DIV1;
@@ -344,9 +346,8 @@ void SystemClock_Config(void)
     _Error_Handler(__FILE__, __LINE__);
   }
 
-  PeriphClkInit.PeriphClockSelection = RCC_PERIPHCLK_USART1|RCC_PERIPHCLK_RTC;
-  PeriphClkInit.Usart1ClockSelection = RCC_USART1CLKSOURCE_PCLK2;
-  PeriphClkInit.RTCClockSelection = RCC_RTCCLKSOURCE_LSI;
+  PeriphClkInit.PeriphClockSelection = RCC_PERIPHCLK_RTC;
+  PeriphClkInit.RTCClockSelection = RCC_RTCCLKSOURCE_LSE;
   if (HAL_RCCEx_PeriphCLKConfig(&PeriphClkInit) != HAL_OK)
   {
     _Error_Handler(__FILE__, __LINE__);
@@ -450,27 +451,6 @@ static void MX_SPI1_Init(void)
 
 }
 
-/* USART1 init function */
-static void MX_USART1_UART_Init(void)
-{
-
-  huart1.Instance = USART1;
-  huart1.Init.BaudRate = 115200;
-  huart1.Init.WordLength = UART_WORDLENGTH_7B;
-  huart1.Init.StopBits = UART_STOPBITS_1;
-  huart1.Init.Parity = UART_PARITY_NONE;
-  huart1.Init.Mode = UART_MODE_TX_RX;
-  huart1.Init.HwFlowCtl = UART_HWCONTROL_NONE;
-  huart1.Init.OverSampling = UART_OVERSAMPLING_16;
-  huart1.Init.OneBitSampling = UART_ONE_BIT_SAMPLE_DISABLE;
-  huart1.AdvancedInit.AdvFeatureInit = UART_ADVFEATURE_NO_INIT;
-  if (HAL_UART_Init(&huart1) != HAL_OK)
-  {
-    _Error_Handler(__FILE__, __LINE__);
-  }
-
-}
-
 /** Configure pins as 
         * Analog 
         * Input 
@@ -489,19 +469,19 @@ static void MX_GPIO_Init(void)
   __HAL_RCC_GPIOB_CLK_ENABLE();
 
   /*Configure GPIO pin Output Level */
-  HAL_GPIO_WritePin(GPIOA, VBAT_DIV_EN_Pin|DIO5_Pin|RST_Pin|DIO3_Pin 
-                          |DIO4_Pin|DIO0_Pin|DIO1_Pin|DIO2_Pin 
-                          |LED_Pin, GPIO_PIN_RESET);
+  HAL_GPIO_WritePin(GPIOA, VBAT_DIV_EN_Pin|DIO5_Pin|RST_Pin|SPI1_NSS_Pin 
+                          |DIO3_Pin|DIO4_Pin|DIO0_Pin|DIO1_Pin 
+                          |DIO2_Pin|LED_Pin, GPIO_PIN_RESET);
 
   /*Configure GPIO pin Output Level */
   HAL_GPIO_WritePin(REED_EN_GPIO_Port, REED_EN_Pin, GPIO_PIN_RESET);
 
-  /*Configure GPIO pins : VBAT_DIV_EN_Pin DIO5_Pin RST_Pin DIO3_Pin 
-                           DIO4_Pin DIO0_Pin DIO1_Pin DIO2_Pin 
-                           LED_Pin */
-  GPIO_InitStruct.Pin = VBAT_DIV_EN_Pin|DIO5_Pin|RST_Pin|DIO3_Pin 
-                          |DIO4_Pin|DIO0_Pin|DIO1_Pin|DIO2_Pin 
-                          |LED_Pin;
+  /*Configure GPIO pins : VBAT_DIV_EN_Pin DIO5_Pin RST_Pin SPI1_NSS_Pin 
+                           DIO3_Pin DIO4_Pin DIO0_Pin DIO1_Pin 
+                           DIO2_Pin LED_Pin */
+  GPIO_InitStruct.Pin = VBAT_DIV_EN_Pin|DIO5_Pin|RST_Pin|SPI1_NSS_Pin 
+                          |DIO3_Pin|DIO4_Pin|DIO0_Pin|DIO1_Pin 
+                          |DIO2_Pin|LED_Pin;
   GPIO_InitStruct.Mode = GPIO_MODE_OUTPUT_PP;
   GPIO_InitStruct.Pull = GPIO_NOPULL;
   GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
@@ -549,6 +529,7 @@ void OnRxTimeout( void )
 {
     Radio.Sleep( );
 //    State = RX_TIMEOUT;
+    printf("RxTimeout\n");
 }
 
 void OnRxError( void )
