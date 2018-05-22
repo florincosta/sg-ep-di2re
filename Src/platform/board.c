@@ -336,20 +336,20 @@ void SystemClockReConfig( void )
     }
 
     /* Enable PLL */
-    __HAL_RCC_PLL_ENABLE( );
+//    __HAL_RCC_PLL_ENABLE( );
 
-    /* Wait till PLL is ready */
-    while( __HAL_RCC_GET_FLAG( RCC_FLAG_PLLRDY ) == RESET )
-    {
-    }
-
-    /* Select PLL as system clock source */
-    __HAL_RCC_SYSCLK_CONFIG ( RCC_SYSCLKSOURCE_PLLCLK );
-
-    /* Wait till PLL is used as system clock source */
-    while( __HAL_RCC_GET_SYSCLK_SOURCE( ) != RCC_SYSCLKSOURCE_STATUS_PLLCLK )
-    {
-    }
+//    /* Wait till PLL is ready */
+//    while( __HAL_RCC_GET_FLAG( RCC_FLAG_PLLRDY ) == RESET )
+//    {
+//    }
+//
+//    /* Select PLL as system clock source */
+//    __HAL_RCC_SYSCLK_CONFIG ( RCC_SYSCLKSOURCE_PLLCLK );
+//
+//    /* Wait till PLL is used as system clock source */
+//    while( __HAL_RCC_GET_SYSCLK_SOURCE( ) != RCC_SYSCLKSOURCE_STATUS_PLLCLK )
+//    {
+//    }
 }
 
 void SysTick_Handler( void )

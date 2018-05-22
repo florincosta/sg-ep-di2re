@@ -48,90 +48,33 @@
 #include "timer.h"
 #include "radio.h"
 
-#if defined( REGION_AS923 )
 
-#define RF_FREQUENCY                                923000000 // Hz
-
-#elif defined( REGION_AU915 )
-
-#define RF_FREQUENCY                                915000000 // Hz
-
-#elif defined( REGION_CN470 )
-
-#define RF_FREQUENCY                                470000000 // Hz
-
-#elif defined( REGION_CN779 )
-
-#define RF_FREQUENCY                                779000000 // Hz
-
-#elif defined( REGION_EU433 )
-
-#define RF_FREQUENCY                                433000000 // Hz
-
-#elif defined( REGION_EU868 )
+#if defined( REGION_EU868 )
 
 #define RF_FREQUENCY                                868000000 // Hz
 
-#elif defined( REGION_KR920 )
-
-#define RF_FREQUENCY                                920000000 // Hz
-
-#elif defined( REGION_IN865 )
-
-#define RF_FREQUENCY                                865000000 // Hz
-
-#elif defined( REGION_US915 )
-
-#define RF_FREQUENCY                                915000000 // Hz
-
-#elif defined( REGION_US915_HYBRID )
-
-#define RF_FREQUENCY                                915000000 // Hz
-
-#else
-    #error "Please define a frequency band in the compiler options."
 #endif
-
 #define TX_OUTPUT_POWER                             14        // dBm
 
 #if defined( USE_MODEM_LORA )
 
-#define LORA_BANDWIDTH                              2         // [0: 125 kHz,
+#define LORA_BANDWIDTH                              0         // [0: 125 kHz,
                                                               //  1: 250 kHz,
-                                                              //  2: 500 kHz,
-                                                              //  3: Reserved]
 #define LORA_SPREADING_FACTOR                       7         // [SF7..SF12]
 #define LORA_CODINGRATE                             1         // [1: 4/5,
-                                                              //  2: 4/6,
-                                                              //  3: 4/7,
-                                                              //  4: 4/8]
+
 #define LORA_PREAMBLE_LENGTH                        8         // Same for Tx and Rx
-#define LORA_SYMBOL_TIMEOUT                         0         // Symbols
+#define LORA_SYMBOL_TIMEOUT                         5         // Symbols
 #define LORA_FIX_LENGTH_PAYLOAD_ON                  false
 #define LORA_IQ_INVERSION_ON                        false
-
-#elif defined( USE_MODEM_FSK )
-
-#define FSK_FDEV                                    25000     // Hz
-#define FSK_DATARATE                                50000     // bps
-#define FSK_BANDWIDTH                               1000000   // Hz >> DSB in sx126x
-#define FSK_AFC_BANDWIDTH                           1000000   // Hz
-#define FSK_PREAMBLE_LENGTH                         5         // Same for Tx and Rx
-#define FSK_FIX_LENGTH_PAYLOAD_ON                   false
-
-#else
-    #error "Please define a modem in the compiler options."
 #endif
-
 #define RX_TIMEOUT_VALUE                            1000
 
 /* USER CODE END Includes */
 
 /* Private variables ---------------------------------------------------------*/
 ADC_HandleTypeDef hadc;
-
 RTC_HandleTypeDef hrtc;
-
 SPI_HandleTypeDef hspi1;
 
 /* USER CODE BEGIN PV */
@@ -149,8 +92,6 @@ static RadioEvents_t RadioEvents;
  */
 extern Gpio_t Led1;
 extern Gpio_t Led2;
-
-
 
 /* USER CODE END PV */
 
@@ -205,33 +146,8 @@ void OnRxError( void );
 int main(void)
 {
   /* USER CODE BEGIN 1 */
-    initialise_monitor_handles();
-
-  /* USER CODE END 1 */
-
-  /* MCU Configuration----------------------------------------------------------*/
-
-  /* Reset of all peripherals, Initializes the Flash interface and the Systick. */
-//  HAL_Init();
-
-  /* USER CODE BEGIN Init */
-
-  /* USER CODE END Init */
-
-  /* Configure the system clock */
-//  SystemClock_Config();
-
-  /* USER CODE BEGIN SysInit */
-
-  /* USER CODE END SysInit */
-
-  /* Initialize all configured peripherals */
-//  MX_GPIO_Init();
-//  MX_SPI1_Init();
-//  MX_RTC_Init();
-//  MX_ADC_Init();
-  /* USER CODE BEGIN 2 */
-
+  initialise_monitor_handles();
+  uint8_t buffer[4] = {0x11,0x12,0x13,0x14};
 
   // Target board initialization
   BoardInitMcu( );
@@ -259,21 +175,6 @@ int main(void)
                                  LORA_CODINGRATE, 0, LORA_PREAMBLE_LENGTH,
                                  LORA_SYMBOL_TIMEOUT, LORA_FIX_LENGTH_PAYLOAD_ON,
                                  0, true, 0, 0, LORA_IQ_INVERSION_ON, true );
-
-#elif defined( USE_MODEM_FSK )
-
-  Radio.SetTxConfig( MODEM_FSK, TX_OUTPUT_POWER, FSK_FDEV, 0,
-                                FSK_DATARATE, 0,
-                                FSK_PREAMBLE_LENGTH, FSK_FIX_LENGTH_PAYLOAD_ON,
-                                true, 0, 0, 0, 3000 );
-
-  Radio.SetRxConfig( MODEM_FSK, FSK_BANDWIDTH, FSK_DATARATE,
-                                0, FSK_AFC_BANDWIDTH, FSK_PREAMBLE_LENGTH,
-                                0, FSK_FIX_LENGTH_PAYLOAD_ON, 0, true,
-                                0, 0,false, true );
-
-#else
-  #error "Please define a frequency band in the compiler options."
 #endif
 
   Radio.Rx( RX_TIMEOUT_VALUE );
@@ -288,11 +189,14 @@ int main(void)
   /* USER CODE END WHILE */
 
   /* USER CODE BEGIN 3 */
+
       HAL_GPIO_WritePin(LED_GPIO_Port, LED_Pin, GPIO_PIN_SET);
 
       HAL_GPIO_WritePin(LED_GPIO_Port, LED_Pin, GPIO_PIN_RESET);
 
-//      printf("test\n");
+      Radio.Send(buffer,sizeof(buffer));
+
+      HAL_Delay(3000);
 
   }
   /* USER CODE END 3 */
@@ -506,6 +410,7 @@ static void MX_GPIO_Init(void)
 void OnTxDone( void )
 {
     Radio.Sleep( );
+    printf("TxDone\n");
 //    State = TX;
 }
 
