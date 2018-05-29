@@ -50,6 +50,7 @@ Gpio_t Led2;
  * MCU objects
  */
 Uart_t Uart2;
+OP_MODE mode;
 
 /*!
  * Initializes the unused GPIO to a know status
@@ -66,6 +67,7 @@ static void SystemClockConfig( void );
  */
 static void CalibrateSystemWakeupTime( void );
 
+
 /*!
  * System Clock Re-Configuration when waking up from STOP mode
  */
@@ -75,7 +77,7 @@ static void SystemClockReConfig( void );
  * Timer used at first boot to calibrate the SystemWakeupTime
  */
 static TimerEvent_t CalibrateSystemWakeupTimeTimer;
-
+static TimerEvent_t EventWakeupTimeTimer;
 /*!
  * Flag to indicate if the MCU is Initialized
  */
@@ -99,6 +101,7 @@ uint8_t Uart2RxBuffer[UART2_FIFO_RX_SIZE];
  * Flag to indicate if the SystemWakeupTime is Calibrated
  */
 static bool SystemWakeupTimeCalibrated = false;
+static bool eventWakeUpTime = false;
 
 /*!
  * Callback indicating the end of the system wake-up time calibration
@@ -129,10 +132,53 @@ void BoardEnableIrq( void )
         __enable_irq( );
     }
 }
+static void Board_GpioInit(void)
+{
+	GPIO_InitTypeDef GPIO_InitStruct;
 
+	/* GPIO Ports Clock Enable */
+	__HAL_RCC_GPIOC_CLK_ENABLE();
+	__HAL_RCC_GPIOA_CLK_ENABLE();
+	__HAL_RCC_GPIOB_CLK_ENABLE();
+
+	/*Configure GPIO pin Output Level */
+	HAL_GPIO_WritePin(GPIOA, VBAT_DIV_EN_Pin|DIO5_Pin|RST_Pin|SPI1_NSS_Pin
+			|DIO3_Pin|DIO4_Pin|DIO0_Pin|DIO1_Pin
+			|DIO2_Pin|LED_Pin, GPIO_PIN_RESET);
+
+	/*Configure GPIO pin Output Level */
+	HAL_GPIO_WritePin(REED_EN_GPIO_Port, REED_EN_Pin, GPIO_PIN_RESET);
+
+	/*Configure GPIO pins : VBAT_DIV_EN_Pin DIO5_Pin RST_Pin SPI1_NSS_Pin
+	                           DIO3_Pin DIO4_Pin DIO0_Pin DIO1_Pin
+	                           DIO2_Pin LED_Pin */
+	GPIO_InitStruct.Pin = VBAT_DIV_EN_Pin|DIO5_Pin|RST_Pin|SPI1_NSS_Pin
+			|DIO3_Pin|DIO4_Pin|DIO0_Pin|DIO1_Pin
+			|DIO2_Pin|LED_Pin;
+	GPIO_InitStruct.Mode = GPIO_MODE_OUTPUT_PP;
+	GPIO_InitStruct.Pull = GPIO_NOPULL;
+	GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
+	HAL_GPIO_Init(GPIOA, &GPIO_InitStruct);
+
+	/*Configure GPIO pin : REED_EN_Pin */
+	GPIO_InitStruct.Pin = REED_EN_Pin;
+	GPIO_InitStruct.Mode = GPIO_MODE_OUTPUT_PP;
+	GPIO_InitStruct.Pull = GPIO_NOPULL;
+	GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
+	HAL_GPIO_Init(REED_EN_GPIO_Port, &GPIO_InitStruct);
+
+	HAL_GPIO_WritePin(REED_EN_GPIO_Port, REED_EN_Pin, GPIO_PIN_SET);
+
+	/*Configure GPIO pins : REED_IN0_Pin REED_IN1_Pin */
+	GPIO_InitStruct.Pin = REED_IN0_Pin|REED_IN1_Pin;
+	GPIO_InitStruct.Mode = GPIO_MODE_IT_RISING_FALLING;
+	GPIO_InitStruct.Pull = GPIO_NOPULL;
+	HAL_GPIO_Init(GPIOB, &GPIO_InitStruct);
+
+}
 void BoardInitPeriph( void )
 {
-
+	Board_GpioInit();
 }
 
 void BoardInitMcu( void )
@@ -288,9 +334,10 @@ void SystemClockConfig( void )
     {
       _Error_Handler(__FILE__, __LINE__);
     }
-
-    PeriphClkInit.PeriphClockSelection = RCC_PERIPHCLK_RTC;
+    PeriphClkInit.PeriphClockSelection = RCC_PERIPHCLK_RTC|RCC_PERIPHCLK_LPTIM1;
     PeriphClkInit.RTCClockSelection = RCC_RTCCLKSOURCE_LSE;
+    PeriphClkInit.LptimClockSelection = RCC_LPTIM1CLKSOURCE_LSE;
+
     if (HAL_RCCEx_PeriphCLKConfig(&PeriphClkInit) != HAL_OK)
     {
       _Error_Handler(__FILE__, __LINE__);
@@ -313,7 +360,7 @@ void CalibrateSystemWakeupTime( void )
     if( SystemWakeupTimeCalibrated == false )
     {
         TimerInit( &CalibrateSystemWakeupTimeTimer, OnCalibrateSystemWakeupTimeTimerEvent );
-        TimerSetValue( &CalibrateSystemWakeupTimeTimer, 1000 );
+        TimerSetValue( &CalibrateSystemWakeupTimeTimer, 5000 );
         TimerStart( &CalibrateSystemWakeupTimeTimer );
         while( SystemWakeupTimeCalibrated == false )
         {
@@ -350,12 +397,6 @@ void SystemClockReConfig( void )
 //    while( __HAL_RCC_GET_SYSCLK_SOURCE( ) != RCC_SYSCLKSOURCE_STATUS_PLLCLK )
 //    {
 //    }
-}
-
-void SysTick_Handler( void )
-{
-    HAL_IncTick( );
-    HAL_SYSTICK_IRQHandler( );
 }
 
 uint8_t GetBoardPowerSource( void )

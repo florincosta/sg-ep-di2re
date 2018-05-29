@@ -39,7 +39,7 @@
 /* Includes ------------------------------------------------------------------*/
 #include "main.h"
 #include "stm32l0xx_hal.h"
-
+#include "rtc-board.h"
 /* USER CODE BEGIN Includes */
 #include <string.h>
 #include "board.h"
@@ -74,7 +74,11 @@
 
 /* Private variables ---------------------------------------------------------*/
 ADC_HandleTypeDef hadc;
+
+LPTIM_HandleTypeDef hlptim1;
+
 RTC_HandleTypeDef hrtc;
+
 SPI_HandleTypeDef hspi1;
 
 /* USER CODE BEGIN PV */
@@ -86,12 +90,19 @@ int8_t SnrValue = 0;
  * Radio events function pointer
  */
 static RadioEvents_t RadioEvents;
+static TimerEvent_t SystemWakeupTimeTimer;
+static bool eventWakeUpTime = false;
+static bool frameSent = false;
 
 /*!
  * LED GPIO pins objects
  */
 extern Gpio_t Led1;
 extern Gpio_t Led2;
+
+OP_MODE opmode;
+static volatile GPIO_PinState pinStateM;
+static volatile GPIO_PinState pinStateN;
 
 /* USER CODE END PV */
 
@@ -101,6 +112,7 @@ static void MX_GPIO_Init(void);
 static void MX_SPI1_Init(void);
 static void MX_RTC_Init(void);
 static void MX_ADC_Init(void);
+static void MX_LPTIM1_Init(void);
 
 /* USER CODE BEGIN PFP */
 
@@ -136,6 +148,23 @@ void OnRxError( void );
 
 /* USER CODE BEGIN 0 */
 
+/*!
+ * Callback indicating the end of the system wake-up time calibration
+ */
+static void OnSystemWakeupTimeTimerEvent( void )
+{
+	eventWakeUpTime = true;
+	setState(INIT);
+}
+
+void TimerInitialisation(void)
+{
+	TimerInit( &SystemWakeupTimeTimer, OnSystemWakeupTimeTimerEvent );
+	TimerSetValue( &SystemWakeupTimeTimer, 1000 );
+	TimerStart( &SystemWakeupTimeTimer );
+}
+
+
 /* USER CODE END 0 */
 
 /**
@@ -147,11 +176,16 @@ int main(void)
 {
   /* USER CODE BEGIN 1 */
   initialise_monitor_handles();
-  uint8_t buffer[4] = {0x11,0x12,0x13,0x14};
-
+  uint8_t buffer[4] = {0U,0U,0U,0U};
+  GPIO_TypeDef pinState;
+  static HAL_LPTIM_StateTypeDef timerState;
+  static HAL_StatusTypeDef timerStatus;
+  static  uint32_t  counter = 0u;
+  uint8_t pinst;
   // Target board initialization
   BoardInitMcu( );
   BoardInitPeriph( );
+  MX_LPTIM1_Init();
 
   // Radio initialization
   RadioEvents.TxDone = OnTxDone;
@@ -164,7 +198,7 @@ int main(void)
 
   Radio.SetChannel( RF_FREQUENCY );
 
-#if defined( USE_MODEM_LORA )
+  #if defined( USE_MODEM_LORA )
 
   Radio.SetTxConfig( MODEM_LORA, TX_OUTPUT_POWER, 0, LORA_BANDWIDTH,
                                  LORA_SPREADING_FACTOR, LORA_CODINGRATE,
@@ -179,28 +213,62 @@ int main(void)
 
   Radio.Rx( RX_TIMEOUT_VALUE );
 
+  /* USER CODE END SysInit */
+
+  /* Initialize all configured peripherals */
+
+  /* USER CODE BEGIN 2 */
+
   /* USER CODE END 2 */
 
   /* Infinite loop */
   /* USER CODE BEGIN WHILE */
   while (1)
   {
+	  switch(opmode)
+	  {
+		  case INIT:
+		  {
+			  printf("initialisation\n");
+			  HAL_GPIO_EXTI_IRQHandler(REED_IN0_Pin);
+			  setState(RUN);
+		  }
+		  break;
 
-  /* USER CODE END WHILE */
+		  case RUN:
+		  {
+			buffer[0] = HAL_GPIO_ReadPin(REED_IN0_GPIO_Port, REED_IN0_Pin);
+			buffer[1] = (uint8_t)((0x1122 & 0xFF00) >> 8);
+			buffer[2] = (uint8_t)(0x1122 & 0x00FF);
 
-  /* USER CODE BEGIN 3 */
+            /*printf("%d\n", buffer[0]);
+            printf("%d\n", buffer[1]);
+            printf("%d\n", buffer[2]);
+            */
+			printf("run\n");
+            Radio.Send(buffer,sizeof(buffer));
 
-      HAL_GPIO_WritePin(LED_GPIO_Port, LED_Pin, GPIO_PIN_SET);
+			  while(!frameSent)
+			  {
+			      DelayMs(1);
+		      }
 
-      HAL_GPIO_WritePin(LED_GPIO_Port, LED_Pin, GPIO_PIN_RESET);
+			  opmode = SLEEP;
+		  }
+		  break;
 
-      Radio.Send(buffer,sizeof(buffer));
+		  case SLEEP:
+		  {
+			  HAL_GPIO_WritePin(REED_EN_GPIO_Port, REED_EN_Pin, GPIO_PIN_RESET);
 
-      HAL_Delay(3000);
-
-  }
+			  timerStatus = HAL_LPTIM_TimeOut_Start_IT(&hlptim1, 65535,32767);
+			  HAL_PWR_EnterSTOPMode(PWR_LOWPOWERREGULATOR_ON, PWR_STOPENTRY_WFI);
+			  HAL_LPTIM_TimeOut_Stop_IT(&hlptim1);
+		  }
+		  break;
+    }
   /* USER CODE END 3 */
-
+  }
 }
 
 /**
@@ -250,8 +318,10 @@ void SystemClock_Config(void)
     _Error_Handler(__FILE__, __LINE__);
   }
 
-  PeriphClkInit.PeriphClockSelection = RCC_PERIPHCLK_RTC;
+  PeriphClkInit.PeriphClockSelection = RCC_PERIPHCLK_RTC|RCC_PERIPHCLK_LPTIM1;
   PeriphClkInit.RTCClockSelection = RCC_RTCCLKSOURCE_LSE;
+  PeriphClkInit.LptimClockSelection = RCC_LPTIM1CLKSOURCE_PCLK;
+
   if (HAL_RCCEx_PeriphCLKConfig(&PeriphClkInit) != HAL_OK)
   {
     _Error_Handler(__FILE__, __LINE__);
@@ -309,6 +379,25 @@ static void MX_ADC_Init(void)
   }
 
 }
+
+/* LPTIM1 init function */
+static void MX_LPTIM1_Init(void)
+{
+
+  hlptim1.Instance = LPTIM1;
+  hlptim1.Init.Clock.Source = LPTIM_CLOCKSOURCE_APBCLOCK_LPOSC;
+  hlptim1.Init.Clock.Prescaler = LPTIM_PRESCALER_DIV1;
+  hlptim1.Init.Trigger.Source = LPTIM_TRIGSOURCE_SOFTWARE;
+  hlptim1.Init.OutputPolarity = LPTIM_OUTPUTPOLARITY_HIGH;
+  hlptim1.Init.UpdateMode = LPTIM_UPDATE_IMMEDIATE;
+  hlptim1.Init.CounterSource = LPTIM_COUNTERSOURCE_INTERNAL;
+  if (HAL_LPTIM_Init(&hlptim1) != HAL_OK)
+  {
+    _Error_Handler(__FILE__, __LINE__);
+  }
+
+}
+
 
 /* RTC init function */
 static void MX_RTC_Init(void)
@@ -400,7 +489,7 @@ static void MX_GPIO_Init(void)
 
   /*Configure GPIO pins : REED_IN0_Pin REED_IN1_Pin */
   GPIO_InitStruct.Pin = REED_IN0_Pin|REED_IN1_Pin;
-  GPIO_InitStruct.Mode = GPIO_MODE_INPUT;
+  GPIO_InitStruct.Mode = GPIO_MODE_IT_RISING_FALLING;
   GPIO_InitStruct.Pull = GPIO_NOPULL;
   HAL_GPIO_Init(GPIOB, &GPIO_InitStruct);
 
@@ -411,7 +500,7 @@ void OnTxDone( void )
 {
     Radio.Sleep( );
     printf("TxDone\n");
-//    State = TX;
+    frameSent = true;
 }
 
 void OnRxDone( uint8_t *payload, uint16_t size, int16_t rssi, int8_t snr )
@@ -443,6 +532,15 @@ void OnRxError( void )
 //    State = RX_ERROR;
 }
 
+OP_MODE getState(void)
+{
+	return opmode;
+}
+
+void setState(OP_MODE mystate)
+{
+	opmode = mystate;
+}
 /* USER CODE END 4 */
 
 /**
@@ -460,6 +558,23 @@ void _Error_Handler(char *file, int line)
   }
   /* USER CODE END Error_Handler_Debug */
 }
+
+/**
+  * @brief  Compare match callback in non blocking mode
+  * @param  hlptim : LPTIM handle
+  * @retval None
+  */
+void HAL_LPTIM_CompareMatchCallback(LPTIM_HandleTypeDef *hlptim)
+{
+  /* Prevent unused argument(s) compilation warning */
+  UNUSED(hlptim);
+  setState(INIT);
+
+  /* NOTE : This function Should not be modified, when the callback is needed,
+            the HAL_LPTIM_CompareMatchCallback could be implemented in the user file
+   */
+}
+
 
 #ifdef  USE_FULL_ASSERT
 /**
