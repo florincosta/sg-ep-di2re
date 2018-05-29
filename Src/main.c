@@ -261,12 +261,18 @@ int main(void)
 		  {
 			  HAL_GPIO_WritePin(REED_EN_GPIO_Port, REED_EN_Pin, GPIO_PIN_RESET);
 
+<<<<<<< HEAD
 			  timerStatus = HAL_LPTIM_TimeOut_Start(&hlptim1, 65535,32767);
 			  HAL_LPTIM_Counter_Start(&hlptim1,32757);
 			  __HAL_PWR_CLEAR_FLAG(PWR_FLAG_WU);
 			  //HAL_PWR_EnterSLEEPMode(PWR_LOWPOWERREGULATOR_ON, PWR_STOPENTRY_WFI);
 			  HAL_PWR_EnterSTOPMode(PWR_MAINREGULATOR_ON, PWR_STOPENTRY_WFI);
 			  //HAL_LPTIM_TimeOut_Stop_IT(&hlptim1);
+=======
+			  timerStatus = HAL_LPTIM_TimeOut_Start_IT(&hlptim1, 65535,32767);
+			  HAL_PWR_EnterSTOPMode(PWR_LOWPOWERREGULATOR_ON, PWR_STOPENTRY_WFI);
+			  HAL_LPTIM_TimeOut_Stop_IT(&hlptim1);
+>>>>>>> 5f8ccc4054a88881db1399b495fea179e276c2c9
 		  }
 		  break;
     }
