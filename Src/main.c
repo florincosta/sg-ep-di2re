@@ -39,7 +39,7 @@
 /* Includes ------------------------------------------------------------------*/
 #include "main.h"
 #include "stm32l0xx_hal.h"
-#include "rtc-board.h"
+
 /* USER CODE BEGIN Includes */
 #include <string.h>
 #include "board.h"
@@ -70,6 +70,12 @@
 #endif
 #define RX_TIMEOUT_VALUE                            1000
 
+typedef enum {
+    INIT,
+    RUN,
+    SLEEP,
+} OP_MODE;
+
 /* USER CODE END Includes */
 
 /* Private variables ---------------------------------------------------------*/
@@ -90,19 +96,19 @@ int8_t SnrValue = 0;
  * Radio events function pointer
  */
 static RadioEvents_t RadioEvents;
-static TimerEvent_t SystemWakeupTimeTimer;
-static bool eventWakeUpTime = false;
+//static TimerEvent_t SystemWakeupTimeTimer;
+//static bool eventWakeUpTime = false;
 static bool frameSent = false;
 
 /*!
  * LED GPIO pins objects
  */
-extern Gpio_t Led1;
-extern Gpio_t Led2;
+//extern Gpio_t Led1;
+//extern Gpio_t Led2;
 
 OP_MODE opmode;
-static volatile GPIO_PinState pinStateM;
-static volatile GPIO_PinState pinStateN;
+//static volatile GPIO_PinState pinStateM;
+//static volatile GPIO_PinState pinStateN;
 
 /* USER CODE END PV */
 
@@ -147,21 +153,43 @@ void OnRxError( void );
 /* USER CODE END PFP */
 
 /* USER CODE BEGIN 0 */
+OP_MODE getState(void)
+{
+    return opmode;
+}
+
+void setState(OP_MODE mystate)
+{
+    opmode = mystate;
+}
 
 /*!
  * Callback indicating the end of the system wake-up time calibration
  */
-static void OnSystemWakeupTimeTimerEvent( void )
-{
-	eventWakeUpTime = true;
-	setState(INIT);
-}
+//static void OnSystemWakeupTimeTimerEvent( void )
+//{
+//	eventWakeUpTime = true;
+//	setState(INIT);
+//}
+//
+//void TimerInitialisation(void)
+//{
+//	TimerInit( &SystemWakeupTimeTimer, OnSystemWakeupTimeTimerEvent );
+//	TimerSetValue( &SystemWakeupTimeTimer, 1000 );
+//	TimerStart( &SystemWakeupTimeTimer );
+//}
 
-void TimerInitialisation(void)
+/**
+  * @brief  Aturoreload match callback in non blocking mode
+  * @param  hlptim : LPTIM handle
+  * @retval None
+  */
+void HAL_LPTIM_AutoReloadMatchCallback(LPTIM_HandleTypeDef *hlptim)
 {
-	TimerInit( &SystemWakeupTimeTimer, OnSystemWakeupTimeTimerEvent );
-	TimerSetValue( &SystemWakeupTimeTimer, 1000 );
-	TimerStart( &SystemWakeupTimeTimer );
+  /* Prevent unused argument(s) compilation warning */
+  if(hlptim == &hlptim1) {
+      setState(INIT);
+  }
 }
 
 
@@ -175,13 +203,18 @@ void TimerInitialisation(void)
 int main(void)
 {
   /* USER CODE BEGIN 1 */
+
+  /* USER CODE END 1 */
+
+  /* MCU Configuration----------------------------------------------------------*/
+
+  /* Reset of all peripherals, Initializes the Flash interface and the Systick. */
+//  HAL_Init();
+
+  /* USER CODE BEGIN Init */
   initialise_monitor_handles();
   uint8_t buffer[4] = {0U,0U,0U,0U};
-  GPIO_TypeDef pinState;
-  static HAL_LPTIM_StateTypeDef timerState;
-  static HAL_StatusTypeDef timerStatus;
-  static  uint32_t  counter = 0u;
-  uint8_t pinst;
+
   // Target board initialization
   BoardInitMcu( );
   BoardInitPeriph( );
@@ -209,14 +242,25 @@ int main(void)
                                  LORA_CODINGRATE, 0, LORA_PREAMBLE_LENGTH,
                                  LORA_SYMBOL_TIMEOUT, LORA_FIX_LENGTH_PAYLOAD_ON,
                                  0, true, 0, 0, LORA_IQ_INVERSION_ON, true );
-#endif
+  #endif
 
   Radio.Rx( RX_TIMEOUT_VALUE );
+
+  /* USER CODE END Init */
+
+  /* Configure the system clock */
+//  SystemClock_Config();
+
+  /* USER CODE BEGIN SysInit */
 
   /* USER CODE END SysInit */
 
   /* Initialize all configured peripherals */
-
+//  MX_GPIO_Init();
+//  MX_SPI1_Init();
+//  MX_RTC_Init();
+//  MX_ADC_Init();
+//  MX_LPTIM1_Init();
   /* USER CODE BEGIN 2 */
 
   /* USER CODE END 2 */
@@ -225,59 +269,55 @@ int main(void)
   /* USER CODE BEGIN WHILE */
   while (1)
   {
-	  switch(opmode)
-	  {
-		  case INIT:
-		  {
-			  printf("initialisation\n");
-			  HAL_GPIO_EXTI_IRQHandler(REED_IN0_Pin);
-			  setState(RUN);
-		  }
-		  break;
+      switch(opmode)
+      {
+          case INIT:
+          {
+              HAL_LPTIM_Counter_Stop_IT(&hlptim1);
+//              HAL_GPIO_WritePin(LED_GPIO_Port, LED_Pin, GPIO_PIN_SET);
+              HAL_GPIO_TogglePin(LED_GPIO_Port, LED_Pin);
+              printf("initialization\n");
 
-		  case RUN:
-		  {
-			buffer[0] = HAL_GPIO_ReadPin(REED_IN0_GPIO_Port, REED_IN0_Pin);
-			buffer[1] = (uint8_t)((0x1122 & 0xFF00) >> 8);
-			buffer[2] = (uint8_t)(0x1122 & 0x00FF);
+              setState(RUN);
+          }
+          break;
 
-            /*printf("%d\n", buffer[0]);
-            printf("%d\n", buffer[1]);
-            printf("%d\n", buffer[2]);
-            */
-			printf("run\n");
+          case RUN:
+          {
+            buffer[0] = HAL_GPIO_ReadPin(REED_IN0_GPIO_Port, REED_IN0_Pin);
+            buffer[1] = (uint8_t)((0x1122 & 0xFF00) >> 8);
+            buffer[2] = (uint8_t)(0x1122 & 0x00FF);
+
+            printf("run\n");
             Radio.Send(buffer,sizeof(buffer));
 
-			  while(!frameSent)
-			  {
-			      DelayMs(1);
-		      }
+              while(!frameSent)
+              {
+                  DelayMs(1);
+              }
 
-			  opmode = SLEEP;
-		  }
-		  break;
+              opmode = SLEEP;
+          }
+          break;
 
-		  case SLEEP:
-		  {
-			  HAL_GPIO_WritePin(REED_EN_GPIO_Port, REED_EN_Pin, GPIO_PIN_RESET);
+          case SLEEP:
+          {
+              HAL_GPIO_WritePin(REED_EN_GPIO_Port, REED_EN_Pin, GPIO_PIN_RESET);
 
-<<<<<<< HEAD
-			  timerStatus = HAL_LPTIM_TimeOut_Start(&hlptim1, 65535,32767);
-			  HAL_LPTIM_Counter_Start(&hlptim1,32757);
-			  __HAL_PWR_CLEAR_FLAG(PWR_FLAG_WU);
-			  //HAL_PWR_EnterSLEEPMode(PWR_LOWPOWERREGULATOR_ON, PWR_STOPENTRY_WFI);
-			  HAL_PWR_EnterSTOPMode(PWR_MAINREGULATOR_ON, PWR_STOPENTRY_WFI);
-			  //HAL_LPTIM_TimeOut_Stop_IT(&hlptim1);
-=======
-			  timerStatus = HAL_LPTIM_TimeOut_Start_IT(&hlptim1, 65535,32767);
-			  HAL_PWR_EnterSTOPMode(PWR_LOWPOWERREGULATOR_ON, PWR_STOPENTRY_WFI);
-			  HAL_LPTIM_TimeOut_Stop_IT(&hlptim1);
->>>>>>> 5f8ccc4054a88881db1399b495fea179e276c2c9
-		  }
-		  break;
+              hlptim1.Instance->CNT = 0;    //clear counter
+//              HAL_GPIO_WritePin(LED_GPIO_Port, LED_Pin, GPIO_PIN_RESET);
+              HAL_LPTIM_Counter_Start_IT(&hlptim1, 32768);
+              HAL_PWR_EnterSTOPMode(PWR_LOWPOWERREGULATOR_ON, PWR_STOPENTRY_WFI);
+          }
+          break;
     }
-  /* USER CODE END 3 */
+  /* USER CODE END WHILE */
+
+  /* USER CODE BEGIN 3 */
+
   }
+  /* USER CODE END 3 */
+
 }
 
 /**
@@ -329,12 +369,16 @@ void SystemClock_Config(void)
 
   PeriphClkInit.PeriphClockSelection = RCC_PERIPHCLK_RTC|RCC_PERIPHCLK_LPTIM1;
   PeriphClkInit.RTCClockSelection = RCC_RTCCLKSOURCE_LSE;
-  PeriphClkInit.LptimClockSelection = RCC_LPTIM1CLKSOURCE_PCLK;
+  PeriphClkInit.LptimClockSelection = RCC_LPTIM1CLKSOURCE_LSE;
 
   if (HAL_RCCEx_PeriphCLKConfig(&PeriphClkInit) != HAL_OK)
   {
     _Error_Handler(__FILE__, __LINE__);
   }
+
+    /**Enables the Clock Security System 
+    */
+  HAL_RCCEx_EnableLSECSS();
 
     /**Configure the Systick interrupt time 
     */
@@ -406,7 +450,6 @@ static void MX_LPTIM1_Init(void)
   }
 
 }
-
 
 /* RTC init function */
 static void MX_RTC_Init(void)
@@ -498,7 +541,7 @@ static void MX_GPIO_Init(void)
 
   /*Configure GPIO pins : REED_IN0_Pin REED_IN1_Pin */
   GPIO_InitStruct.Pin = REED_IN0_Pin|REED_IN1_Pin;
-  GPIO_InitStruct.Mode = GPIO_MODE_IT_RISING_FALLING;
+  GPIO_InitStruct.Mode = GPIO_MODE_INPUT;
   GPIO_InitStruct.Pull = GPIO_NOPULL;
   HAL_GPIO_Init(GPIOB, &GPIO_InitStruct);
 
@@ -541,15 +584,6 @@ void OnRxError( void )
 //    State = RX_ERROR;
 }
 
-OP_MODE getState(void)
-{
-	return opmode;
-}
-
-void setState(OP_MODE mystate)
-{
-	opmode = mystate;
-}
 /* USER CODE END 4 */
 
 /**
@@ -567,23 +601,6 @@ void _Error_Handler(char *file, int line)
   }
   /* USER CODE END Error_Handler_Debug */
 }
-
-/**
-  * @brief  Compare match callback in non blocking mode
-  * @param  hlptim : LPTIM handle
-  * @retval None
-  */
-void HAL_LPTIM_CompareMatchCallback(LPTIM_HandleTypeDef *hlptim)
-{
-  /* Prevent unused argument(s) compilation warning */
-  UNUSED(hlptim);
-  setState(INIT);
-
-  /* NOTE : This function Should not be modified, when the callback is needed,
-            the HAL_LPTIM_CompareMatchCallback could be implemented in the user file
-   */
-}
-
 
 #ifdef  USE_FULL_ASSERT
 /**

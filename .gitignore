@@ -51,3 +51,11 @@ Module.symvers
 Mkfile.old
 dkms.conf
 /Release/
+/Debug/
+
+*.cfg
+.cproject
+.mxproject
+mx.scratch
+.settings/
+core

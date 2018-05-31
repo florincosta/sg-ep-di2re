@@ -50,7 +50,6 @@ Gpio_t Led2;
  * MCU objects
  */
 Uart_t Uart2;
-OP_MODE mode;
 
 /*!
  * Initializes the unused GPIO to a know status
@@ -334,6 +333,7 @@ void SystemClockConfig( void )
     {
       _Error_Handler(__FILE__, __LINE__);
     }
+
     PeriphClkInit.PeriphClockSelection = RCC_PERIPHCLK_RTC|RCC_PERIPHCLK_LPTIM1;
     PeriphClkInit.RTCClockSelection = RCC_RTCCLKSOURCE_LSE;
     PeriphClkInit.LptimClockSelection = RCC_LPTIM1CLKSOURCE_LSE;
@@ -342,6 +342,10 @@ void SystemClockConfig( void )
     {
       _Error_Handler(__FILE__, __LINE__);
     }
+
+      /**Enables the Clock Security System
+      */
+    HAL_RCCEx_EnableLSECSS();
 
       /**Configure the Systick interrupt time
       */
@@ -377,26 +381,11 @@ void SystemClockReConfig( void )
     /* Enable HSI */
     __HAL_RCC_HSI_CONFIG( RCC_HSI_ON );
 
-    /* Wait till HSE is ready */
+    /* Wait till HSI is ready */
     while( __HAL_RCC_GET_FLAG( RCC_FLAG_HSIRDY ) == RESET )
     {
     }
 
-    /* Enable PLL */
-//    __HAL_RCC_PLL_ENABLE( );
-
-//    /* Wait till PLL is ready */
-//    while( __HAL_RCC_GET_FLAG( RCC_FLAG_PLLRDY ) == RESET )
-//    {
-//    }
-//
-//    /* Select PLL as system clock source */
-//    __HAL_RCC_SYSCLK_CONFIG ( RCC_SYSCLKSOURCE_PLLCLK );
-//
-//    /* Wait till PLL is used as system clock source */
-//    while( __HAL_RCC_GET_SYSCLK_SOURCE( ) != RCC_SYSCLKSOURCE_STATUS_PLLCLK )
-//    {
-//    }
 }
 
 uint8_t GetBoardPowerSource( void )
