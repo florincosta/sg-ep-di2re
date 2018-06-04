@@ -275,7 +275,7 @@ int main(void)
           case SLEEP:
           {
               HAL_GPIO_WritePin(REED_EN_GPIO_Port, REED_EN_Pin, GPIO_PIN_RESET);
-
+              HAL_GPIO_EXTI_IRQHandler(REED_IN0_Pin);
               hlptim1.Instance->CNT = 0;    //clear counter
 //              HAL_GPIO_WritePin(LED_GPIO_Port, LED_Pin, GPIO_PIN_RESET);
               HAL_LPTIM_Counter_Start_IT(&hlptim1, 32768);

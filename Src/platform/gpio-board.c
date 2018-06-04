@@ -349,10 +349,12 @@ void HAL_GPIO_EXTI_Callback( uint16_t gpioPin )
 {
     uint8_t callbackIndex = 0;
 
+    printf("external interrupt from PB\n");
     if( gpioPin > 0 )
     {
         while( gpioPin != 0x01 )
         {
+        	printf("pin setm PB\n");
             gpioPin = gpioPin >> 1;
             callbackIndex++;
         }
