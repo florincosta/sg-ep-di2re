@@ -96,19 +96,13 @@ int8_t SnrValue = 0;
  * Radio events function pointer
  */
 static RadioEvents_t RadioEvents;
-//static TimerEvent_t SystemWakeupTimeTimer;
-//static bool eventWakeUpTime = false;
 static bool frameSent = false;
 
 /*!
  * LED GPIO pins objects
  */
-//extern Gpio_t Led1;
-//extern Gpio_t Led2;
 
 OP_MODE opmode;
-//static volatile GPIO_PinState pinStateM;
-//static volatile GPIO_PinState pinStateN;
 
 /* USER CODE END PV */
 
@@ -163,27 +157,6 @@ void setState(OP_MODE mystate)
     opmode = mystate;
 }
 
-/*!
- * Callback indicating the end of the system wake-up time calibration
- */
-//static void OnSystemWakeupTimeTimerEvent( void )
-//{
-//	eventWakeUpTime = true;
-//	setState(INIT);
-//}
-//
-//void TimerInitialisation(void)
-//{
-//	TimerInit( &SystemWakeupTimeTimer, OnSystemWakeupTimeTimerEvent );
-//	TimerSetValue( &SystemWakeupTimeTimer, 1000 );
-//	TimerStart( &SystemWakeupTimeTimer );
-//}
-
-/**
-  * @brief  Aturoreload match callback in non blocking mode
-  * @param  hlptim : LPTIM handle
-  * @retval None
-  */
 void HAL_LPTIM_AutoReloadMatchCallback(LPTIM_HandleTypeDef *hlptim)
 {
   /* Prevent unused argument(s) compilation warning */
@@ -208,12 +181,10 @@ int main(void)
 
   /* MCU Configuration----------------------------------------------------------*/
 
-  /* Reset of all peripherals, Initializes the Flash interface and the Systick. */
-//  HAL_Init();
-
   /* USER CODE BEGIN Init */
   initialise_monitor_handles();
   uint8_t buffer[4] = {0U,0U,0U,0U};
+  static uint32_t battVoltage;
 
   // Target board initialization
   BoardInitMcu( );
@@ -274,7 +245,6 @@ int main(void)
           case INIT:
           {
               HAL_LPTIM_Counter_Stop_IT(&hlptim1);
-//              HAL_GPIO_WritePin(LED_GPIO_Port, LED_Pin, GPIO_PIN_SET);
               HAL_GPIO_TogglePin(LED_GPIO_Port, LED_Pin);
               printf("initialization\n");
 
@@ -284,9 +254,11 @@ int main(void)
 
           case RUN:
           {
-            buffer[0] = HAL_GPIO_ReadPin(REED_IN0_GPIO_Port, REED_IN0_Pin);
-            buffer[1] = (uint8_t)((0x1122 & 0xFF00) >> 8);
-            buffer[2] = (uint8_t)(0x1122 & 0x00FF);
+        	//battVoltage = HW_GetBatteryVoltage();
+        	battVoltage = BoardGetBatteryLevel();
+        	buffer[0] = HAL_GPIO_ReadPin(REED_IN0_GPIO_Port, REED_IN0_Pin);
+            buffer[1] = (uint8_t)((battVoltage & 0xFF00) >> 8);
+            buffer[2] = (uint8_t)(battVoltage & 0x00FF);
 
             printf("run\n");
             Radio.Send(buffer,sizeof(buffer));
@@ -395,7 +367,6 @@ void SystemClock_Config(void)
 /* ADC init function */
 static void MX_ADC_Init(void)
 {
-
   ADC_ChannelConfTypeDef sConfig;
 
     /**Configure the global features of the ADC (Clock, Resolution, Data Alignment and number of conversion) 
@@ -404,7 +375,7 @@ static void MX_ADC_Init(void)
   hadc.Init.OversamplingMode = DISABLE;
   hadc.Init.ClockPrescaler = ADC_CLOCK_SYNC_PCLK_DIV1;
   hadc.Init.Resolution = ADC_RESOLUTION_12B;
-  hadc.Init.SamplingTime = ADC_SAMPLETIME_1CYCLE_5;
+  hadc.Init.SamplingTime = ADC_SAMPLETIME_1CYCLE_5; /* ADC_SAMPLETIME_39CYCLES_5 */
   hadc.Init.ScanConvMode = ADC_SCAN_DIRECTION_FORWARD;
   hadc.Init.DataAlign = ADC_DATAALIGN_RIGHT;
   hadc.Init.ContinuousConvMode = DISABLE;
@@ -415,7 +386,7 @@ static void MX_ADC_Init(void)
   hadc.Init.EOCSelection = ADC_EOC_SINGLE_CONV;
   hadc.Init.Overrun = ADC_OVR_DATA_PRESERVED;
   hadc.Init.LowPowerAutoWait = DISABLE;
-  hadc.Init.LowPowerFrequencyMode = DISABLE;
+  hadc.Init.LowPowerFrequencyMode = DISABLE; /*ENABLE */
   hadc.Init.LowPowerAutoPowerOff = DISABLE;
   if (HAL_ADC_Init(&hadc) != HAL_OK)
   {
@@ -430,6 +401,13 @@ static void MX_ADC_Init(void)
   {
     _Error_Handler(__FILE__, __LINE__);
   }
+
+  /*
+  initStruct.Mode = GPIO_MODE_ANALOG;
+  initStruct.Pull = GPIO_NOPULL;
+  initStruct.Speed = GPIO_SPEED_HIGH;
+  HW_GPIO_Init(VBAT_DIV_EN_GPIO_Port, VBAT_DIV_EN_Pin, &initStruct);
+  */
 
 }
 
@@ -469,7 +447,6 @@ static void MX_RTC_Init(void)
   {
     _Error_Handler(__FILE__, __LINE__);
   }
-
 }
 
 /* SPI1 init function */
@@ -548,6 +525,90 @@ static void MX_GPIO_Init(void)
 }
 
 /* USER CODE BEGIN 4 */
+
+uint16_t BoardBatteryMeasureVolage( void )
+{
+    uint16_t vdd = 0;
+    uint16_t vref = VREFINT_CAL;
+    uint16_t vdiv = 0;
+    uint16_t batteryVoltage = 0;
+
+    vdiv = AdcReadChannel( &Adc, BAT_LEVEL_CHANNEL);
+    //vref = AdcReadChannel( &Adc, ADC_CHANNEL_VREFINT );
+
+    vdd = ( float )FACTORY_POWER_SUPPLY * ( float )VREFINT_CAL / ( float )vref;
+    batteryVoltage = vdd * ( ( float )vdiv / ( float )ADC_MAX_VALUE );
+
+    //                                vDiv
+    // Divider bridge  VBAT <-> 20k -<--|-->- 10k <-> GND => vBat = 3 * vDiv
+    batteryVoltage = 3 * batteryVoltage;
+    return batteryVoltage;
+}
+
+uint8_t BoardGetBatteryLevel( void )
+{
+    uint8_t batteryLevel = 0;
+
+    BatteryVoltage = BoardBatteryMeasureVolage( );
+
+    if( GetBoardPowerSource( ) == USB_POWER )
+    {
+        batteryLevel = 0;
+    }
+    else
+    {
+        if( BatteryVoltage >= BATTERY_MAX_LEVEL )
+        {
+            batteryLevel = 254;
+        }
+        else if( ( BatteryVoltage > BATTERY_MIN_LEVEL ) && ( BatteryVoltage < BATTERY_MAX_LEVEL ) )
+        {
+            batteryLevel = ( ( 253 * ( BatteryVoltage - BATTERY_MIN_LEVEL ) ) / ( BATTERY_MAX_LEVEL - BATTERY_MIN_LEVEL ) ) + 1;
+        }
+        else if( ( BatteryVoltage > BATTERY_SHUTDOWN_LEVEL ) && ( BatteryVoltage <= BATTERY_MIN_LEVEL ) )
+        {
+            batteryLevel = 1;
+        }
+        else //if( BatteryVoltage <= BATTERY_SHUTDOWN_LEVEL )
+        {
+            batteryLevel = 255;
+        }
+    }
+    return batteryLevel;
+}
+
+uint16_t HW_GetBatteryVoltage( void )
+{
+    uint16_t vrefIntAdcConvertedValue;
+    uint16_t vrefIntVoltage;
+    uint16_t batteryAdcConvertedValue;
+    uint16_t batteryAdcConvertedVoltage;
+    uint16_t vddVoltage;
+
+    //vrefIntAdcConvertedValue = AdcReadChannel(ADC_CHANNEL_VREFINT);
+    vrefIntAdcConvertedValue = AdcReadChannel( &hadc, ADC_CHANNEL_VREFINT );
+    vrefIntVoltage = *VREFINT_CAL_ADDR * VREFINT_CAL_VREF / RANGE_12BITS;
+    vddVoltage = RANGE_12BITS * vrefIntVoltage / vrefIntAdcConvertedValue;
+
+    /* enable voltage batt divider pin */
+    HAL_GPIO_WritePin(VBAT_DIV_EN_GPIO_Port, VBAT_DIV_EN_Pin, GPIO_PIN_RESET);
+
+    HAL_GPIO_WritePin(VBAT_DIV_GPIO_Port, VBAT_DIV_Pin, GPIO_PIN_RESET);
+    //HW_GPIO_Write(BAT_DIVISOR_CONTROL_PORT, BAT_DIVISOR_CONTROL_PIN, GPIO_PIN_RESET); // enable voltage divider
+
+    //batteryAdcConvertedValue = HW_AdcReadChannel(ADC_CHANNEL_1);
+    batteryAdcConvertedValue = AdcReadChannel( &hadc, ADC_CHANNEL_1);
+
+    HAL_GPIO_WritePin(VBAT_DIV_GPIO_Port, VBAT_DIV_Pin, GPIO_PIN_SET);
+
+    //HW_GPIO_Write(BAT_DIVISOR_CONTROL_PORT, BAT_DIVISOR_CONTROL_PIN, GPIO_PIN_SET); // disable voltage divider
+    HAL_GPIO_WritePin(VBAT_DIV_EN_GPIO_Port, VBAT_DIV_EN_Pin, GPIO_PIN_SET);
+
+    batteryAdcConvertedVoltage = (batteryAdcConvertedValue * vddVoltage / RANGE_12BITS) * BATTERYVOLTAGE_DIVISION_FACTOR;
+
+    return batteryAdcConvertedVoltage;
+}
+
 void OnTxDone( void )
 {
     Radio.Sleep( );
@@ -558,11 +619,6 @@ void OnTxDone( void )
 void OnRxDone( uint8_t *payload, uint16_t size, int16_t rssi, int8_t snr )
 {
     Radio.Sleep( );
-//    BufferSize = size;
-//    memcpy( Buffer, payload, BufferSize );
-//    RssiValue = rssi;
-//    SnrValue = snr;
-//    State = RX;
 }
 
 void OnTxTimeout( void )
