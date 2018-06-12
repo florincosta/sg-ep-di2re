@@ -54,10 +54,11 @@ dkms.conf
 /Debug/
 
 *.cfg
+.project
+.project.bak
 .cproject
 .mxproject
 mx.scratch
 .settings/
 core
-.project.bak
 sg-ep-di2re.xml
