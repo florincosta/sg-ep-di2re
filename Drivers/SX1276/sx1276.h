@@ -162,9 +162,16 @@ typedef void ( DioIrqHandler )( void );
  */
 
 /*!
+ * \brief Resets the radio
+ *
+ * \param None
+ */
+void SX1276Reset( void );
+
+/*!
  * \brief Initializes the radio
  *
- * \param [IN] events Structure containing the driver callback functions
+ * \param None
  */
 void SX1276Init( void );
 

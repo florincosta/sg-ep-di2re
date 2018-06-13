@@ -101,7 +101,7 @@ typedef enum {
 
 #if defined( USE_MODEM_LORA )
 
-#define LORA_BANDWIDTH                              2         // [0: 125 kHz,
+#define LORA_BANDWIDTH                              0         // [0: 125 kHz,
                                                               //  1: 250 kHz,
                                                               //  2: 500 kHz,
                                                               //  3: Reserved]
@@ -231,7 +231,6 @@ int main(void)
     HAL_DBGMCU_EnableDBGStopMode();
   //  HAL_DBGMCU_EnableDBGStandbyMode();
 
-//    HAL_GPIO_TogglePin(LED_GPIO_Port, LED_Pin);
 
     SX1276Init();
 
@@ -242,99 +241,92 @@ int main(void)
                                    LORA_PREAMBLE_LENGTH, LORA_FIX_LENGTH_PAYLOAD_ON,
                                    true, 0, 0, LORA_IQ_INVERSION_ON, 3000 );
 
-    SX1276SetRxConfig( MODEM_LORA, LORA_BANDWIDTH, LORA_SPREADING_FACTOR,
-                                   LORA_CODINGRATE, 0, LORA_PREAMBLE_LENGTH,
-                                   LORA_SYMBOL_TIMEOUT, LORA_FIX_LENGTH_PAYLOAD_ON,
-                                   0, true, 0, 0, LORA_IQ_INVERSION_ON, true );
+//    SX1276SetRxConfig( MODEM_LORA, LORA_BANDWIDTH, LORA_SPREADING_FACTOR,
+//                                   LORA_CODINGRATE, 0, LORA_PREAMBLE_LENGTH,
+//                                   LORA_SYMBOL_TIMEOUT, LORA_FIX_LENGTH_PAYLOAD_ON,
+//                                   0, true, 0, 0, LORA_IQ_INVERSION_ON, true );
 
 
   /* USER CODE END 2 */
 
   /* Infinite loop */
   /* USER CODE BEGIN WHILE */
-  while (1)
-  {
-      SX1276Send(frame, sizeof(frame));
-      do {
-          HAL_Delay(1);
-      } while(SX1276Read(REG_IRQFLAGS2) & RF_IRQFLAGS2_PAYLOADREADY);   // TODO guard
+    while (1) {
 
-//      switch(state)
-//      {
-//          case STATE_INIT:
-//              HAL_GPIO_WritePin(REED_EN_GPIO_Port, REED_EN_Pin, GPIO_PIN_SET);
-//              reed_ch0 = HAL_GPIO_ReadPin(REED_IN0_GPIO_Port, REED_IN0_Pin);
-//              reed_ch0_old = reed_ch0;
-//              reed_ch1 = HAL_GPIO_ReadPin(REED_IN1_GPIO_Port, REED_IN1_Pin);
-//              reed_ch1_old = reed_ch1;
-//              HAL_GPIO_WritePin(REED_EN_GPIO_Port, REED_EN_Pin, GPIO_PIN_RESET);
-//              state = STATE_RUN;
-//              break;
-//
-//          case STATE_RUN:
-//              HAL_GPIO_WritePin(REED_EN_GPIO_Port, REED_EN_Pin, GPIO_PIN_SET);
-//              reed_ch0 = HAL_GPIO_ReadPin(REED_IN0_GPIO_Port, REED_IN0_Pin);
-//              reed_ch1 = HAL_GPIO_ReadPin(REED_IN1_GPIO_Port, REED_IN1_Pin);
-//              HAL_GPIO_WritePin(REED_EN_GPIO_Port, REED_EN_Pin, GPIO_PIN_RESET);
-//              if( (reed_ch0 && !reed_ch0_old) || (reed_ch1 && !reed_ch1_old) ) {
-//                  state = STATE_TRANSMIT;
-//              }
-//              else {
-//                  state = STATE_LOW_POWER;
-//              }
-//              reed_ch0_old = reed_ch0;
-//              reed_ch1_old = reed_ch1;
-//              break;
-//
-//          case STATE_LOW_POWER:
-//              SX1276SetSleep();
-//
-//              //Start time in one shot mode
-//              HAL_LPTIM_OnePulse_Start(&hlptim1, 0, 6553);  // 200 ms
-//
-//              // Enable Compare match interrupt
-//              __HAL_LPTIM_ENABLE_IT(&hlptim1, LPTIM_IT_CMPM);
-//
-//              // Disable the Power Voltage Detector
-//              HAL_PWR_DisablePVD( );
-//
-//              // Enable Ultra low power mode
-//              HAL_PWREx_EnableUltraLowPower( );
-//
-//              // Enable the fast wake up from Ultra low power mode
-//              HAL_PWREx_EnableFastWakeUp( );
-//
-//              __HAL_PWR_CLEAR_FLAG(PWR_FLAG_WU);
-////              HAL_GPIO_WritePin(LED_GPIO_Port, LED_Pin, GPIO_PIN_RESET);
-//              HAL_PWR_EnterSTOPMode(PWR_LOWPOWERREGULATOR_ON, PWR_STOPENTRY_WFI);
-////              HAL_GPIO_WritePin(LED_GPIO_Port, LED_Pin, GPIO_PIN_SET);
-//
-//              HAL_PWR_EnablePVD( );
-//              __HAL_LPTIM_DISABLE_IT(&hlptim1, LPTIM_IT_CMPM);
-//              /* Enable HSI */
-//              __HAL_RCC_HSI_CONFIG( RCC_HSI_ON );
-//              /* Wait till HSE is ready */
-//              while( __HAL_RCC_GET_FLAG( RCC_FLAG_HSIRDY ) == RESET );  //TODO guard
-//
-//              state = STATE_RUN;
-//              break;
-//
-//          case STATE_TRANSMIT:
-//              // measured transmit duration is around 15ms
-//              HAL_GPIO_WritePin(LED_GPIO_Port, LED_Pin, GPIO_PIN_SET);
-//              frame[0] = 0x01;
-//              SX1276Send(frame, sizeof(frame));
-//              do {
-//                  HAL_Delay(1);
-//              } while(SX1276Read(REG_IRQFLAGS2) & RF_IRQFLAGS2_PAYLOADREADY);   // TODO guard
+        switch (state) {
+        case STATE_INIT:
+            HAL_GPIO_WritePin(REED_EN_GPIO_Port, REED_EN_Pin, GPIO_PIN_SET);
+            reed_ch0 = HAL_GPIO_ReadPin(REED_IN0_GPIO_Port, REED_IN0_Pin);
+            reed_ch0_old = reed_ch0;
+            reed_ch1 = HAL_GPIO_ReadPin(REED_IN1_GPIO_Port, REED_IN1_Pin);
+            reed_ch1_old = reed_ch1;
+            HAL_GPIO_WritePin(REED_EN_GPIO_Port, REED_EN_Pin, GPIO_PIN_RESET);
+            state = STATE_RUN;
+            break;
+
+        case STATE_RUN:
+            HAL_GPIO_WritePin(REED_EN_GPIO_Port, REED_EN_Pin, GPIO_PIN_SET);
+            reed_ch0 = HAL_GPIO_ReadPin(REED_IN0_GPIO_Port, REED_IN0_Pin);
+            reed_ch1 = HAL_GPIO_ReadPin(REED_IN1_GPIO_Port, REED_IN1_Pin);
+            HAL_GPIO_WritePin(REED_EN_GPIO_Port, REED_EN_Pin, GPIO_PIN_RESET);
+            if ((reed_ch0 && !reed_ch0_old) || (reed_ch1 && !reed_ch1_old)) {
+                state = STATE_TRANSMIT;
+            } else {
+                state = STATE_LOW_POWER;
+            }
+            reed_ch0_old = reed_ch0;
+            reed_ch1_old = reed_ch1;
+            break;
+
+        case STATE_LOW_POWER:
+            SX1276SetSleep();
+
+            //Start time in one shot mode
+            HAL_LPTIM_OnePulse_Start(&hlptim1, 0, 6553);  // 200 ms
+
+            // Enable Compare match interrupt
+            __HAL_LPTIM_ENABLE_IT(&hlptim1, LPTIM_IT_CMPM);
+
+            // Disable the Power Voltage Detector
+            HAL_PWR_DisablePVD();
+
+            // Enable Ultra low power mode
+            HAL_PWREx_EnableUltraLowPower();
+
+            // Enable the fast wake up from Ultra low power mode
+            HAL_PWREx_EnableFastWakeUp();
+
+            __HAL_PWR_CLEAR_FLAG(PWR_FLAG_WU);
 //              HAL_GPIO_WritePin(LED_GPIO_Port, LED_Pin, GPIO_PIN_RESET);
-//              state = STATE_LOW_POWER;
-//              break;
-//
-//          default:
-//              state = STATE_INIT;
-//
-//    }
+            HAL_PWR_EnterSTOPMode(PWR_LOWPOWERREGULATOR_ON, PWR_STOPENTRY_WFI);
+//              HAL_GPIO_WritePin(LED_GPIO_Port, LED_Pin, GPIO_PIN_SET);
+
+            HAL_PWR_EnablePVD();
+            __HAL_LPTIM_DISABLE_IT(&hlptim1, LPTIM_IT_CMPM);
+            /* Enable HSI */
+            __HAL_RCC_HSI_CONFIG(RCC_HSI_ON);
+            /* Wait till HSE is ready */
+            while ( __HAL_RCC_GET_FLAG( RCC_FLAG_HSIRDY ) == RESET);  //TODO guard
+
+            state = STATE_RUN;
+            break;
+
+        case STATE_TRANSMIT:
+            // measured transmit duration is around 15ms
+            HAL_GPIO_WritePin(LED_GPIO_Port, LED_Pin, GPIO_PIN_SET);
+            frame[0] = 0x01;
+            SX1276Send(frame, sizeof(frame));
+            do {
+                HAL_Delay(1);
+            } while (SX1276Read(REG_IRQFLAGS2) & RF_IRQFLAGS2_PAYLOADREADY); // TODO guard
+            HAL_GPIO_WritePin(LED_GPIO_Port, LED_Pin, GPIO_PIN_RESET);
+            state = STATE_LOW_POWER;
+            break;
+
+        default:
+            state = STATE_INIT;
+
+        }
   /* USER CODE END WHILE */
 
   /* USER CODE BEGIN 3 */
@@ -549,10 +541,10 @@ static void MX_GPIO_Init(void)
   __HAL_RCC_GPIOB_CLK_ENABLE();
 
   /*Configure GPIO pin Output Level */
-  HAL_GPIO_WritePin(VBAT_DIV_EN_GPIO_Port, VBAT_DIV_EN_Pin, GPIO_PIN_SET);
+  HAL_GPIO_WritePin(GPIOA, VBAT_DIV_EN_Pin|NRST_Pin|SPI1_NSS_Pin, GPIO_PIN_SET);
 
   /*Configure GPIO pin Output Level */
-  HAL_GPIO_WritePin(GPIOA, NRST_Pin|SPI1_NSS_Pin|LED_Pin, GPIO_PIN_RESET);
+  HAL_GPIO_WritePin(LED_GPIO_Port, LED_Pin, GPIO_PIN_RESET);
 
   /*Configure GPIO pin Output Level */
   HAL_GPIO_WritePin(REED_EN_GPIO_Port, REED_EN_Pin, GPIO_PIN_RESET);
