@@ -41,9 +41,17 @@
 #include "stm32l0xx_hal.h"
 
 /* USER CODE BEGIN Includes */
-#include <string.h>
 #include "sx1276.h"
 
+
+typedef enum {
+    STATE_INIT,
+    STATE_RUN,
+    STATE_READ_INPUTS,
+    STATE_READ_BATTERY,
+    STATE_TRANSMIT,
+    STATE_LOW_POWER,
+} STATE_T;
 
 #if defined( REGION_AS923 )
 
@@ -129,13 +137,13 @@ ADC_HandleTypeDef hadc;
 
 LPTIM_HandleTypeDef hlptim1;
 
+RTC_HandleTypeDef hrtc;
+
 SPI_HandleTypeDef hspi1;
 
 /* USER CODE BEGIN PV */
 /* Private variables ---------------------------------------------------------*/
-int8_t RssiValue = 0;
-int8_t SnrValue = 0;
-
+static volatile STATE_T state = STATE_INIT;
 
 /* USER CODE END PV */
 
@@ -145,36 +153,14 @@ static void MX_GPIO_Init(void);
 static void MX_SPI1_Init(void);
 static void MX_LPTIM1_Init(void);
 static void MX_ADC_Init(void);
+static void MX_RTC_Init(void);
 
 /* USER CODE BEGIN PFP */
 
 extern void initialise_monitor_handles(void);
 
 /* Private function prototypes -----------------------------------------------*/
-/*!
- * \brief Function to be executed on Radio Tx Done event
- */
-void OnTxDone( void );
 
-/*!
- * \brief Function to be executed on Radio Rx Done event
- */
-void OnRxDone( uint8_t *payload, uint16_t size, int16_t rssi, int8_t snr );
-
-/*!
- * \brief Function executed on Radio Tx Timeout event
- */
-void OnTxTimeout( void );
-
-/*!
- * \brief Function executed on Radio Rx Timeout event
- */
-void OnRxTimeout( void );
-
-/*!
- * \brief Function executed on Radio Rx Error event
- */
-void OnRxError( void );
 
 /* USER CODE END PFP */
 
@@ -190,7 +176,13 @@ void HAL_LPTIM_AutoReloadMatchCallback(LPTIM_HandleTypeDef *hlptim)
 {
   /* Prevent unused argument(s) compilation warning */
 //  if(hlptim == &hlptim1) {
-//      setState(INIT);
+//      switch(state) {
+//      case STATE_LOW_POWER:
+//          state = STATE_RUN;
+//          break;
+//      default:
+//          state = STATE_INIT;
+//      }
 //  }
 }
 
@@ -204,6 +196,11 @@ void HAL_LPTIM_AutoReloadMatchCallback(LPTIM_HandleTypeDef *hlptim)
 int main(void)
 {
   /* USER CODE BEGIN 1 */
+    static GPIO_PinState reed_ch0;
+    static GPIO_PinState reed_ch0_old;
+    static GPIO_PinState reed_ch1;
+    static GPIO_PinState reed_ch1_old;
+    static uint8_t frame[4] = {0};
 
   /* USER CODE END 1 */
 
@@ -228,101 +225,115 @@ int main(void)
   MX_SPI1_Init();
   MX_LPTIM1_Init();
   MX_ADC_Init();
+  MX_RTC_Init();
   /* USER CODE BEGIN 2 */
   //  HAL_DBGMCU_EnableDBGSleepMode();
     HAL_DBGMCU_EnableDBGStopMode();
   //  HAL_DBGMCU_EnableDBGStandbyMode();
 
-    HAL_GPIO_TogglePin(LED_GPIO_Port, LED_Pin);
+//    HAL_GPIO_TogglePin(LED_GPIO_Port, LED_Pin);
 
     SX1276Init();
-    SX1276SetSleep();
-//    SX1276SetChannel( RF_FREQUENCY );
-//
-//    SX1276SetTxConfig( MODEM_LORA, TX_OUTPUT_POWER, 0, LORA_BANDWIDTH,
-//                                   LORA_SPREADING_FACTOR, LORA_CODINGRATE,
-//                                   LORA_PREAMBLE_LENGTH, LORA_FIX_LENGTH_PAYLOAD_ON,
-//                                   true, 0, 0, LORA_IQ_INVERSION_ON, 3000 );
-//
-//    SX1276SetRxConfig( MODEM_LORA, LORA_BANDWIDTH, LORA_SPREADING_FACTOR,
-//                                   LORA_CODINGRATE, 0, LORA_PREAMBLE_LENGTH,
-//                                   LORA_SYMBOL_TIMEOUT, LORA_FIX_LENGTH_PAYLOAD_ON,
-//                                   0, true, 0, 0, LORA_IQ_INVERSION_ON, true );
+
+    SX1276SetChannel( RF_FREQUENCY );
+
+    SX1276SetTxConfig( MODEM_LORA, TX_OUTPUT_POWER, 0, LORA_BANDWIDTH,
+                                   LORA_SPREADING_FACTOR, LORA_CODINGRATE,
+                                   LORA_PREAMBLE_LENGTH, LORA_FIX_LENGTH_PAYLOAD_ON,
+                                   true, 0, 0, LORA_IQ_INVERSION_ON, 3000 );
+
+    SX1276SetRxConfig( MODEM_LORA, LORA_BANDWIDTH, LORA_SPREADING_FACTOR,
+                                   LORA_CODINGRATE, 0, LORA_PREAMBLE_LENGTH,
+                                   LORA_SYMBOL_TIMEOUT, LORA_FIX_LENGTH_PAYLOAD_ON,
+                                   0, true, 0, 0, LORA_IQ_INVERSION_ON, true );
+
+
   /* USER CODE END 2 */
 
   /* Infinite loop */
   /* USER CODE BEGIN WHILE */
   while (1)
   {
+      SX1276Send(frame, sizeof(frame));
+      do {
+          HAL_Delay(1);
+      } while(SX1276Read(REG_IRQFLAGS2) & RF_IRQFLAGS2_PAYLOADREADY);   // TODO guard
 
-//      SX1276Send(buffer, sizeof(buffer));
-//      do {
-//          HAL_Delay(1);
-//      } while(SX1276Read(REG_IRQFLAGS2) & RF_IRQFLAGS2_PAYLOADREADY);
-//      SX1276SetSleep();
-
-      HAL_LPTIM_OnePulse_Start(&hlptim1, 0, 32768);
-      __HAL_LPTIM_ENABLE_IT(&hlptim1, LPTIM_IT_CMPM);
-
-      // Disable the Power Voltage Detector
-      HAL_PWR_DisablePVD( );
-
-      SET_BIT( PWR->CR, PWR_CR_CWUF );
-
-      // Enable Ultra low power mode
-      HAL_PWREx_EnableUltraLowPower( );
-
-      // Enable the fast wake up from Ultra low power mode
-      HAL_PWREx_EnableFastWakeUp( );
-
-//      __HAL_PWR_CLEAR_FLAG(PWR_FLAG_WU);
-      HAL_PWR_EnterSTOPMode(PWR_LOWPOWERREGULATOR_ON, PWR_STOPENTRY_WFI);
-
-      HAL_PWR_EnablePVD( );
-
-      HAL_GPIO_TogglePin(LED_GPIO_Port, LED_Pin);
-
-//      switch(opmode)
+//      switch(state)
 //      {
-//          case INIT:
-//          {
-////           printf("initialization\n");
-//
-//              setState(RUN);
-//          }
-//          break;
-//
-//          case RUN:
-//          {
-//            buffer[0] = HAL_GPIO_ReadPin(REED_IN0_GPIO_Port, REED_IN0_Pin);
-//            buffer[1] = (uint8_t)((0x1122 & 0xFF00) >> 8);
-//            buffer[2] = (uint8_t)(0x1122 & 0x00FF);
-//
-////            printf("run\n");
-////            Radio.Send(buffer,sizeof(buffer));
-////
-////              while(!frameSent)
-////              {
-////                  DelayMs(1);
-////              }
-//
-//              opmode = SLEEP;
-//          }
-//          break;
-//
-//          case SLEEP:
-//          {
+//          case STATE_INIT:
+//              HAL_GPIO_WritePin(REED_EN_GPIO_Port, REED_EN_Pin, GPIO_PIN_SET);
+//              reed_ch0 = HAL_GPIO_ReadPin(REED_IN0_GPIO_Port, REED_IN0_Pin);
+//              reed_ch0_old = reed_ch0;
+//              reed_ch1 = HAL_GPIO_ReadPin(REED_IN1_GPIO_Port, REED_IN1_Pin);
+//              reed_ch1_old = reed_ch1;
 //              HAL_GPIO_WritePin(REED_EN_GPIO_Port, REED_EN_Pin, GPIO_PIN_RESET);
+//              state = STATE_RUN;
+//              break;
 //
-//              HAL_LPTIM_OnePulse_Start(&hlptim1, 0, 32768);
+//          case STATE_RUN:
+//              HAL_GPIO_WritePin(REED_EN_GPIO_Port, REED_EN_Pin, GPIO_PIN_SET);
+//              reed_ch0 = HAL_GPIO_ReadPin(REED_IN0_GPIO_Port, REED_IN0_Pin);
+//              reed_ch1 = HAL_GPIO_ReadPin(REED_IN1_GPIO_Port, REED_IN1_Pin);
+//              HAL_GPIO_WritePin(REED_EN_GPIO_Port, REED_EN_Pin, GPIO_PIN_RESET);
+//              if( (reed_ch0 && !reed_ch0_old) || (reed_ch1 && !reed_ch1_old) ) {
+//                  state = STATE_TRANSMIT;
+//              }
+//              else {
+//                  state = STATE_LOW_POWER;
+//              }
+//              reed_ch0_old = reed_ch0;
+//              reed_ch1_old = reed_ch1;
+//              break;
+//
+//          case STATE_LOW_POWER:
+//              SX1276SetSleep();
+//
+//              //Start time in one shot mode
+//              HAL_LPTIM_OnePulse_Start(&hlptim1, 0, 6553);  // 200 ms
+//
+//              // Enable Compare match interrupt
 //              __HAL_LPTIM_ENABLE_IT(&hlptim1, LPTIM_IT_CMPM);
 //
-//              __HAL_PWR_CLEAR_FLAG(PWR_FLAG_WU);
-//              HAL_PWR_EnterSTOPMode(PWR_LOWPOWERREGULATOR_ON, PWR_STOPENTRY_WFI);
+//              // Disable the Power Voltage Detector
+//              HAL_PWR_DisablePVD( );
 //
-//              HAL_GPIO_TogglePin(LED_GPIO_Port, LED_Pin);
-//          }
-//          break;
+//              // Enable Ultra low power mode
+//              HAL_PWREx_EnableUltraLowPower( );
+//
+//              // Enable the fast wake up from Ultra low power mode
+//              HAL_PWREx_EnableFastWakeUp( );
+//
+//              __HAL_PWR_CLEAR_FLAG(PWR_FLAG_WU);
+////              HAL_GPIO_WritePin(LED_GPIO_Port, LED_Pin, GPIO_PIN_RESET);
+//              HAL_PWR_EnterSTOPMode(PWR_LOWPOWERREGULATOR_ON, PWR_STOPENTRY_WFI);
+////              HAL_GPIO_WritePin(LED_GPIO_Port, LED_Pin, GPIO_PIN_SET);
+//
+//              HAL_PWR_EnablePVD( );
+//              __HAL_LPTIM_DISABLE_IT(&hlptim1, LPTIM_IT_CMPM);
+//              /* Enable HSI */
+//              __HAL_RCC_HSI_CONFIG( RCC_HSI_ON );
+//              /* Wait till HSE is ready */
+//              while( __HAL_RCC_GET_FLAG( RCC_FLAG_HSIRDY ) == RESET );  //TODO guard
+//
+//              state = STATE_RUN;
+//              break;
+//
+//          case STATE_TRANSMIT:
+//              // measured transmit duration is around 15ms
+//              HAL_GPIO_WritePin(LED_GPIO_Port, LED_Pin, GPIO_PIN_SET);
+//              frame[0] = 0x01;
+//              SX1276Send(frame, sizeof(frame));
+//              do {
+//                  HAL_Delay(1);
+//              } while(SX1276Read(REG_IRQFLAGS2) & RF_IRQFLAGS2_PAYLOADREADY);   // TODO guard
+//              HAL_GPIO_WritePin(LED_GPIO_Port, LED_Pin, GPIO_PIN_RESET);
+//              state = STATE_LOW_POWER;
+//              break;
+//
+//          default:
+//              state = STATE_INIT;
+//
 //    }
   /* USER CODE END WHILE */
 
@@ -380,13 +391,18 @@ void SystemClock_Config(void)
     _Error_Handler(__FILE__, __LINE__);
   }
 
-  PeriphClkInit.PeriphClockSelection = RCC_PERIPHCLK_LPTIM1;
+  PeriphClkInit.PeriphClockSelection = RCC_PERIPHCLK_RTC|RCC_PERIPHCLK_LPTIM1;
+  PeriphClkInit.RTCClockSelection = RCC_RTCCLKSOURCE_LSE;
   PeriphClkInit.LptimClockSelection = RCC_LPTIM1CLKSOURCE_LSE;
 
   if (HAL_RCCEx_PeriphCLKConfig(&PeriphClkInit) != HAL_OK)
   {
     _Error_Handler(__FILE__, __LINE__);
   }
+
+    /**Enables the Clock Security System 
+    */
+  HAL_RCCEx_EnableLSECSS();
 
     /**Configure the Systick interrupt time 
     */
@@ -447,7 +463,7 @@ static void MX_LPTIM1_Init(void)
 
   hlptim1.Instance = LPTIM1;
   hlptim1.Init.Clock.Source = LPTIM_CLOCKSOURCE_APBCLOCK_LPOSC;
-  hlptim1.Init.Clock.Prescaler = LPTIM_PRESCALER_DIV8;
+  hlptim1.Init.Clock.Prescaler = LPTIM_PRESCALER_DIV1;
   hlptim1.Init.Trigger.Source = LPTIM_TRIGSOURCE_SOFTWARE;
   hlptim1.Init.OutputPolarity = LPTIM_OUTPUTPOLARITY_HIGH;
   hlptim1.Init.UpdateMode = LPTIM_UPDATE_IMMEDIATE;
@@ -456,6 +472,38 @@ static void MX_LPTIM1_Init(void)
   {
     _Error_Handler(__FILE__, __LINE__);
   }
+
+}
+
+/* RTC init function */
+static void MX_RTC_Init(void)
+{
+
+  /* USER CODE BEGIN RTC_Init 0 */
+
+  /* USER CODE END RTC_Init 0 */
+
+  /* USER CODE BEGIN RTC_Init 1 */
+
+  /* USER CODE END RTC_Init 1 */
+
+    /**Initialize RTC Only 
+    */
+  hrtc.Instance = RTC;
+  hrtc.Init.HourFormat = RTC_HOURFORMAT_24;
+  hrtc.Init.AsynchPrediv = 127;
+  hrtc.Init.SynchPrediv = 255;
+  hrtc.Init.OutPut = RTC_OUTPUT_DISABLE;
+  hrtc.Init.OutPutRemap = RTC_OUTPUT_REMAP_NONE;
+  hrtc.Init.OutPutPolarity = RTC_OUTPUT_POLARITY_HIGH;
+  hrtc.Init.OutPutType = RTC_OUTPUT_TYPE_OPENDRAIN;
+  if (HAL_RTC_Init(&hrtc) != HAL_OK)
+  {
+    _Error_Handler(__FILE__, __LINE__);
+  }
+  /* USER CODE BEGIN RTC_Init 2 */
+
+  /* USER CODE END RTC_Init 2 */
 
 }
 
@@ -547,39 +595,6 @@ static void MX_GPIO_Init(void)
 }
 
 /* USER CODE BEGIN 4 */
-void OnTxDone( void )
-{
-    Radio.Sleep( );
-//    State = TX;
-}
-
-void OnRxDone( uint8_t *payload, uint16_t size, int16_t rssi, int8_t snr )
-{
-    Radio.Sleep( );
-//    BufferSize = size;
-//    memcpy( Buffer, payload, BufferSize );
-//    RssiValue = rssi;
-//    SnrValue = snr;
-//    State = RX;
-}
-
-void OnTxTimeout( void )
-{
-    Radio.Sleep( );
-//    State = TX_TIMEOUT;
-}
-
-void OnRxTimeout( void )
-{
-    Radio.Sleep( );
-//    State = RX_TIMEOUT;
-}
-
-void OnRxError( void )
-{
-    Radio.Sleep( );
-//    State = RX_ERROR;
-}
 
 /* USER CODE END 4 */
 
