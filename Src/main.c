@@ -46,7 +46,6 @@
 
 typedef enum {
     STATE_INIT,
-    STATE_RUN,
     STATE_READ_INPUTS,
     STATE_READ_BATTERY,
     STATE_TRANSMIT,
@@ -166,6 +165,12 @@ extern void initialise_monitor_handles(void);
 
 /* USER CODE BEGIN 0 */
 
+void DelayNOP(const uint32_t count) {
+    for(uint32_t i = 0; i < count; i++) {
+        asm("NOP");
+    }
+}
+
 
 /**
   * @brief  Aturoreload match callback in non blocking mode
@@ -200,6 +205,8 @@ int main(void)
     static GPIO_PinState reed_ch0_old;
     static GPIO_PinState reed_ch1;
     static GPIO_PinState reed_ch1_old;
+    static uint32_t adc_val;
+    static uint32_t batt_millivolts;
     static uint8_t frame[4] = {0};
 
   /* USER CODE END 1 */
@@ -227,10 +234,15 @@ int main(void)
   MX_ADC_Init();
   MX_RTC_Init();
   /* USER CODE BEGIN 2 */
+
+  if (HAL_ADCEx_Calibration_Start(&hadc, ADC_SINGLE_ENDED) != HAL_OK)
+  {
+      Error_Handler();
+  }
+
   //  HAL_DBGMCU_EnableDBGSleepMode();
     HAL_DBGMCU_EnableDBGStopMode();
   //  HAL_DBGMCU_EnableDBGStandbyMode();
-
 
     SX1276Init();
 
@@ -254,6 +266,7 @@ int main(void)
     while (1) {
 
         switch (state) {
+
         case STATE_INIT:
             HAL_GPIO_WritePin(REED_EN_GPIO_Port, REED_EN_Pin, GPIO_PIN_SET);
             reed_ch0 = HAL_GPIO_ReadPin(REED_IN0_GPIO_Port, REED_IN0_Pin);
@@ -261,10 +274,10 @@ int main(void)
             reed_ch1 = HAL_GPIO_ReadPin(REED_IN1_GPIO_Port, REED_IN1_Pin);
             reed_ch1_old = reed_ch1;
             HAL_GPIO_WritePin(REED_EN_GPIO_Port, REED_EN_Pin, GPIO_PIN_RESET);
-            state = STATE_RUN;
+            state = STATE_LOW_POWER;
             break;
 
-        case STATE_RUN:
+        case STATE_READ_INPUTS:
             HAL_GPIO_WritePin(REED_EN_GPIO_Port, REED_EN_Pin, GPIO_PIN_SET);
             reed_ch0 = HAL_GPIO_ReadPin(REED_IN0_GPIO_Port, REED_IN0_Pin);
             reed_ch1 = HAL_GPIO_ReadPin(REED_IN1_GPIO_Port, REED_IN1_Pin);
@@ -276,6 +289,23 @@ int main(void)
             }
             reed_ch0_old = reed_ch0;
             reed_ch1_old = reed_ch1;
+            break;
+
+        case STATE_READ_BATTERY:
+            HAL_GPIO_WritePin(VBAT_DIV_EN_GPIO_Port, VBAT_DIV_EN_Pin, GPIO_PIN_RESET);
+            if (HAL_ADC_Start(&hadc) == HAL_OK) {
+                HAL_ADC_PollForConversion(&hadc, 20);
+                if ((HAL_ADC_GetState(&hadc) & HAL_ADC_STATE_REG_EOC) == HAL_ADC_STATE_REG_EOC) {
+                    adc_val = HAL_ADC_GetValue(&hadc);
+                    batt_millivolts = (3349000 >> 12) * (adc_val << 1);
+                    batt_millivolts = batt_millivolts / 1000;
+                }
+            }
+            else {
+                batt_millivolts = 0;
+            }
+            HAL_GPIO_WritePin(VBAT_DIV_EN_GPIO_Port, VBAT_DIV_EN_Pin, GPIO_PIN_SET);
+            state = STATE_READ_INPUTS;
             break;
 
         case STATE_LOW_POWER:
@@ -308,13 +338,16 @@ int main(void)
             /* Wait till HSE is ready */
             while ( __HAL_RCC_GET_FLAG( RCC_FLAG_HSIRDY ) == RESET);  //TODO guard
 
-            state = STATE_RUN;
+            state = STATE_READ_BATTERY;
             break;
 
         case STATE_TRANSMIT:
             // measured transmit duration is around 15ms
             HAL_GPIO_WritePin(LED_GPIO_Port, LED_Pin, GPIO_PIN_SET);
-            frame[0] = 0x01;
+//            HAL_Delay(15);
+            frame[0] = 0x00;
+            frame[1] = batt_millivolts & 0xFF;
+            frame[2] = (batt_millivolts >> 8) & 0xFF;
             SX1276Send(frame, sizeof(frame));
             do {
                 HAL_Delay(1);
@@ -420,7 +453,7 @@ static void MX_ADC_Init(void)
   hadc.Init.OversamplingMode = DISABLE;
   hadc.Init.ClockPrescaler = ADC_CLOCK_SYNC_PCLK_DIV1;
   hadc.Init.Resolution = ADC_RESOLUTION_12B;
-  hadc.Init.SamplingTime = ADC_SAMPLETIME_1CYCLE_5;
+  hadc.Init.SamplingTime = ADC_SAMPLETIME_7CYCLES_5;
   hadc.Init.ScanConvMode = ADC_SCAN_DIRECTION_FORWARD;
   hadc.Init.DataAlign = ADC_DATAALIGN_RIGHT;
   hadc.Init.ContinuousConvMode = DISABLE;

@@ -1,4 +1,6 @@
 #MicroXplorer Configuration settings - do not modify
+ADC.IPParameters=SamplingTime
+ADC.SamplingTime=ADC_SAMPLETIME_7CYCLES_5
 File.Version=6
 KeepUserPlacement=false
 LPTIM1.ClockPrescaler=LPTIM_PRESCALER_DIV1
