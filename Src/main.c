@@ -52,12 +52,6 @@ typedef enum {
     STATE_LOW_POWER,
 } STATE_T;
 
-typedef enum {
-    FRAME_TYPE_INPUTS_STATES = 0x01,
-    FRAME_TYPE_BATT_VOLTAGE = 0x02,
-} FRAME_TYPE_T;
-
-
 
 #define LOW_POWER_SLEEP_CYCLE_MS                    (200)
 //#define BATT_VOLTAGE_READ_CYCLE_MS                  (24 * 60 * 60 * 1000)
@@ -126,6 +120,7 @@ typedef enum {
 #define LORA_PREAMBLE_LENGTH                        8         // Same for Tx and Rx
 #define LORA_SYMBOL_TIMEOUT                         0         // Symbols
 #define LORA_FIX_LENGTH_PAYLOAD_ON                  false
+#define LORA_CRC_ON                                 true
 #define LORA_IQ_INVERSION_ON                        false
 
 #elif defined( USE_MODEM_FSK )
@@ -224,7 +219,6 @@ int main(void)
     static uint8_t frame[3] = {0};
     static uint32_t lptim_sleep_value;
     static uint32_t read_batt_cnt;
-    static FRAME_TYPE_T frame_type;
 
   /* USER CODE END 1 */
 
@@ -270,7 +264,8 @@ int main(void)
     SX1276SetTxConfig( MODEM_LORA, TX_OUTPUT_POWER, 0, LORA_BANDWIDTH,
                                    LORA_SPREADING_FACTOR, LORA_CODINGRATE,
                                    LORA_PREAMBLE_LENGTH, LORA_FIX_LENGTH_PAYLOAD_ON,
-                                   true, 0, 0, LORA_IQ_INVERSION_ON, 3000 );
+                                   LORA_CRC_ON, 0, 0, LORA_IQ_INVERSION_ON, 3000 );
+
 
 //    SX1276SetRxConfig( MODEM_LORA, LORA_BANDWIDTH, LORA_SPREADING_FACTOR,
 //                                   LORA_CODINGRATE, 0, LORA_PREAMBLE_LENGTH,
@@ -293,7 +288,7 @@ int main(void)
             reed_ch1 = HAL_GPIO_ReadPin(REED_IN1_GPIO_Port, REED_IN1_Pin);
             reed_ch1_old = reed_ch1;
             HAL_GPIO_WritePin(REED_EN_GPIO_Port, REED_EN_Pin, GPIO_PIN_RESET);
-            state = STATE_LOW_POWER;
+            state = STATE_READ_BATTERY;
             break;
 
         case STATE_READ_INPUTS:
@@ -301,8 +296,10 @@ int main(void)
             reed_ch0 = HAL_GPIO_ReadPin(REED_IN0_GPIO_Port, REED_IN0_Pin);
             reed_ch1 = HAL_GPIO_ReadPin(REED_IN1_GPIO_Port, REED_IN1_Pin);
             HAL_GPIO_WritePin(REED_EN_GPIO_Port, REED_EN_Pin, GPIO_PIN_RESET);
-            if ((reed_ch0 && !reed_ch0_old) || (reed_ch1 && !reed_ch1_old)) {
-                frame_type = FRAME_TYPE_INPUTS_STATES;
+            if ((reed_ch0 && !reed_ch0_old) || (reed_ch1 && !reed_ch1_old))  {
+                state = STATE_TRANSMIT;
+            }
+            else if ((!reed_ch0 && reed_ch0_old) || (!reed_ch1 && reed_ch1_old))  {
                 state = STATE_TRANSMIT;
             } else {
                 if(read_batt_cnt >= (BATT_VOLTAGE_READ_CYCLE_MS / LOW_POWER_SLEEP_CYCLE_MS)) {
@@ -336,7 +333,6 @@ int main(void)
             }
             HAL_GPIO_WritePin(VBAT_DIV_EN_GPIO_Port, VBAT_DIV_EN_Pin, GPIO_PIN_SET);
 
-            frame_type = FRAME_TYPE_BATT_VOLTAGE;
             state = STATE_TRANSMIT;
             break;
 
@@ -377,23 +373,14 @@ int main(void)
             // measured transmit duration is around 15ms
             HAL_GPIO_WritePin(LED_GPIO_Port, LED_Pin, GPIO_PIN_SET);
 
-            if ( frame_type == FRAME_TYPE_INPUTS_STATES ) {
-                frame[0] = FRAME_TYPE_INPUTS_STATES;
-                frame[1] = reed_ch0;
-                frame[2] = reed_ch1;
-            } else if ( frame_type == FRAME_TYPE_BATT_VOLTAGE ) {
-                frame[0] = FRAME_TYPE_BATT_VOLTAGE;
-                frame[1] = batt_millivolts & 0xFF;
-                frame[2] = (batt_millivolts >> 8) & 0xFF;
-            }
-            else {
-                break;
-            }
+            frame[0] = (reed_ch1 << 1) | reed_ch0;
+            frame[1] = batt_millivolts & 0xFF;
+            frame[2] = (batt_millivolts >> 8) & 0xFF;
 
             SX1276Send(frame, sizeof(frame));
             do {
                 HAL_Delay(1);
-            } while (SX1276Read(REG_IRQFLAGS2) & RF_IRQFLAGS2_PAYLOADREADY); // TODO guard
+            } while (SX1276Read(REG_LR_IRQFLAGS) & RFLR_IRQFLAGS_TXDONE); // TODO guard
             HAL_GPIO_WritePin(LED_GPIO_Port, LED_Pin, GPIO_PIN_RESET);
             state = STATE_LOW_POWER;
             break;
