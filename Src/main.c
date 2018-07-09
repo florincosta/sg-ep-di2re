@@ -42,6 +42,7 @@
 
 /* USER CODE BEGIN Includes */
 #include "sx1276.h"
+#include "mac.h"
 
 
 typedef enum {
@@ -152,6 +153,7 @@ SPI_HandleTypeDef hspi1;
 /* USER CODE BEGIN PV */
 /* Private variables ---------------------------------------------------------*/
 static volatile STATE_T state = STATE_INIT;
+static uint8_t secret_key[] = {0xA1, 0x2F, 0x43, 0xBB};
 
 /* USER CODE END PV */
 
@@ -216,9 +218,10 @@ int main(void)
     static GPIO_PinState reed_ch1_old;
     static uint32_t adc_val;
     static uint32_t batt_millivolts;
-    static uint8_t frame[3] = {0};
+    static uint8_t frame[5] = {0};
     static uint32_t lptim_sleep_value;
     static uint32_t read_batt_cnt;
+    uint16_t mac;
 
   /* USER CODE END 1 */
 
@@ -374,8 +377,11 @@ int main(void)
             HAL_GPIO_WritePin(LED_GPIO_Port, LED_Pin, GPIO_PIN_SET);
 
             frame[0] = (reed_ch1 << 1) | reed_ch0;
-            frame[1] = batt_millivolts & 0xFF;
-            frame[2] = (batt_millivolts >> 8) & 0xFF;
+            frame[1] = (uint8_t)batt_millivolts;
+            frame[2] = (uint8_t)(batt_millivolts >> 8);
+            mac = MAC_hash(secret_key, sizeof(secret_key), frame, 3);
+            frame[3] = (uint8_t)mac;
+            frame[4] = (uint8_t)(mac >> 8);
 
             SX1276Send(frame, sizeof(frame));
             do {
