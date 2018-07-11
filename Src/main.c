@@ -55,8 +55,7 @@ typedef enum {
 
 
 #define LOW_POWER_SLEEP_CYCLE_MS                    (200)
-//#define BATT_VOLTAGE_READ_CYCLE_MS                  (24 * 60 * 60 * 1000)
-#define BATT_VOLTAGE_READ_CYCLE_MS                  (5 * 60 * 1000)
+#define BATT_VOLTAGE_READ_CYCLE_MS                  (24 * 60 * 60 * 1000)
 #define BATT_VOLTAGE_READ_ERROR                     (0xFFFF)
 
 
@@ -113,7 +112,7 @@ typedef enum {
                                                               //  1: 250 kHz,
                                                               //  2: 500 kHz,
                                                               //  3: Reserved]
-#define LORA_SPREADING_FACTOR                       7         // [SF7..SF12]
+#define LORA_SPREADING_FACTOR                       9         // [SF7..SF12]
 #define LORA_CODINGRATE                             1         // [1: 4/5,
                                                               //  2: 4/6,
                                                               //  3: 4/7,
@@ -122,6 +121,7 @@ typedef enum {
 #define LORA_SYMBOL_TIMEOUT                         0         // Symbols
 #define LORA_FIX_LENGTH_PAYLOAD_ON                  false
 #define LORA_CRC_ON                                 true
+#define LORA_CRC_OFF                                false
 #define LORA_IQ_INVERSION_ON                        false
 
 #elif defined( USE_MODEM_FSK )
@@ -167,7 +167,7 @@ static void MX_RTC_Init(void);
 
 /* USER CODE BEGIN PFP */
 
-extern void initialise_monitor_handles(void);
+//extern void initialise_monitor_handles(void);
 
 /* Private function prototypes -----------------------------------------------*/
 
@@ -267,7 +267,7 @@ int main(void)
     SX1276SetTxConfig( MODEM_LORA, TX_OUTPUT_POWER, 0, LORA_BANDWIDTH,
                                    LORA_SPREADING_FACTOR, LORA_CODINGRATE,
                                    LORA_PREAMBLE_LENGTH, LORA_FIX_LENGTH_PAYLOAD_ON,
-                                   LORA_CRC_ON, 0, 0, LORA_IQ_INVERSION_ON, 3000 );
+                                   LORA_CRC_OFF, 0, 0, LORA_IQ_INVERSION_ON, 3000 );
 
 
 //    SX1276SetRxConfig( MODEM_LORA, LORA_BANDWIDTH, LORA_SPREADING_FACTOR,
@@ -291,7 +291,8 @@ int main(void)
             reed_ch1 = HAL_GPIO_ReadPin(REED_IN1_GPIO_Port, REED_IN1_Pin);
             reed_ch1_old = reed_ch1;
             HAL_GPIO_WritePin(REED_EN_GPIO_Port, REED_EN_Pin, GPIO_PIN_RESET);
-            state = STATE_READ_BATTERY;
+            read_batt_cnt = (BATT_VOLTAGE_READ_CYCLE_MS - 500) / LOW_POWER_SLEEP_CYCLE_MS;
+            state = STATE_LOW_POWER;
             break;
 
         case STATE_READ_INPUTS:
